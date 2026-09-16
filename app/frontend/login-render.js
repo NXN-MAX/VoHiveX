@@ -1,0 +1,25 @@
+return(i,t)=>e("div",{class:"login-page"},[
+ e("header",{class:"login-brand-row"},[e("div",{class:"login-brand"},[e("span",null,"VoHive"),e("span",{class:"vh-brand-x"},"X")])]),
+ e("main",{class:"login-main"},[
+  e("h1",null,"欢迎回来"),
+  e("form",{onSubmit:x(v,["prevent"]),class:"login-form",novalidate:true},[
+   e("div",{class:"login-field"},[
+    e("label",{for:"login-username"},"用户名"),
+    e("input",{value:r.value.username,id:"login-username",name:"username",type:"text",autocomplete:"username",autocapitalize:"none",spellcheck:false,class:"login-input","aria-invalid":!!errors.value.username,"aria-describedby":errors.value.username?"login-username-error":null,onInput:o=>{r.value.username=o.target.value;errors.value.username="";errors.value.form=""}}),
+    errors.value.username?e("p",{id:"login-username-error",class:"login-field-error",role:"alert"},errors.value.username):k("",!0)
+   ]),
+   e("div",{class:"login-field"},[
+    e("label",{for:"login-password"},"密码"),
+    e("div",{class:"login-password-wrap"},[
+     e("input",{value:r.value.password,id:"login-password",name:"password",type:showPassword.value?"text":"password",autocomplete:"current-password",class:"login-input","aria-invalid":!!errors.value.password,"aria-describedby":errors.value.password?"login-password-error":null,onInput:o=>{r.value.password=o.target.value;errors.value.password="";errors.value.form=""}}),
+     e("button",{type:"button",class:"login-password-toggle","aria-label":showPassword.value?"隐藏密码":"显示密码","aria-pressed":showPassword.value,"aria-controls":"login-password",onPointerdown:o=>o.preventDefault(),onClick:()=>{showPassword.value=!showPassword.value}},[
+      e("svg",{viewBox:"0 0 24 24",fill:"currentColor","aria-hidden":"true",focusable:"false",class:showPassword.value?"ri-eye-off-line":"ri-eye-line"},[e("path",{d:showPassword.value?eyeOffPath:eyePath})])
+     ])
+    ]),
+    errors.value.password?e("p",{id:"login-password-error",class:"login-field-error",role:"alert"},errors.value.password):k("",!0)
+   ]),
+   errors.value.form?e("div",{class:"login-form-error",role:"alert"},errors.value.form):k("",!0),
+   e("button",{type:"submit",disabled:a.value,"aria-busy":a.value,class:"login-submit"},a.value?"登录中…":"登录")
+  ])
+ ])
+])
