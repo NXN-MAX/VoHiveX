@@ -1,0 +1,12 @@
+{
+  "original_sha256": "4cbfcec06b719609f3d88714b4df63c420e1cf958fbad0b4851a3c495c595661",
+  "patched_sha256": "b2da6b62fc9a38cf8d5034c6dcfc8fc7a479c675aa02cb1a88995575f2149591",
+  "disabled_http_handlers": [
+    "handleSystemInfo",
+    "handleCheckUpdate",
+    "handleApplyUpdate"
+  ],
+  "http_status": 410,
+  "api_docs": "/api/docs",
+  "platform": "linux/arm64"
+}
