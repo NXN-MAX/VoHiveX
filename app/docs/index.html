@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoHiveX API 文档</title>
+  <link rel="icon" href="/assets/vohivex-favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="/api/docs/assets/5.32.15/swagger-ui.css">
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;color:#1b1b1b}
+    .docs-header{border-bottom:1px solid #e2e5df;background:white;padding:22px max(24px,calc((100vw - 1400px)/2 + 20px));display:flex;align-items:center;gap:12px}
+    .docs-header strong{font-size:21px;letter-spacing:-.6px}.docs-header span{border-left:1px solid #d9ddd4;padding-left:12px;color:#5a6554;font-size:14px}
+    .docs-status{max-width:1360px;margin:24px auto 0;padding:14px 18px;border:1px solid #dce6d4;border-radius:8px;background:#f0f7eb;color:#365124;font-size:14px;line-height:1.6}
+    .docs-status.error{background:#fff2f0;border-color:#f4cbc4;color:#a32a1a}.docs-status[hidden]{display:none}
+    .swagger-ui .wrapper{max-width:1400px}.swagger-ui .info{margin:32px 0 26px}.swagger-ui .info .title{font-size:34px;letter-spacing:-1px}.swagger-ui .scheme-container{box-shadow:none;border-top:1px solid #e5e5e5;border-bottom:1px solid #e5e5e5}
+    .swagger-ui .opblock{box-shadow:none}.swagger-ui .opblock-tag{font-size:22px}.swagger-ui .filter-container input{border:1px solid #bbb;border-radius:6px}
+    /* Path-copy buttons already render CopyIcon; code-copy buttons use the background icon. */
+    .swagger-ui .view-line-link.copy-to-clipboard button{background-image:none;display:flex;align-items:center;justify-content:center;padding:0;-webkit-mask-image:none;mask-image:none}
+    @media(max-width:1408px){.docs-status{margin:20px 24px 0}}@media(max-width:600px){.docs-header{padding:18px 16px}.docs-header span{font-size:12px}.docs-status{margin:16px 16px 0}.swagger-ui .info .title{font-size:28px}.swagger-ui .opblock .opblock-summary{flex-wrap:wrap;gap:6px}.swagger-ui .opblock .opblock-summary-path{max-width:100%;word-break:break-all}}
+  @font-face{font-family:VoHiveX Jost;src:url('/assets/Jost-Italic.ttf') format('truetype');font-style:italic;font-weight:100 900;font-display:swap}
+    .docs-header strong{font-family:VoHiveX Jost,Jost,sans-serif;font-style:italic;font-weight:800;font-synthesis:none}
+    .docs-header strong .brand-x{color:#9fe870;font-size:inherit}
+  </style>
+</head>
+<body>
+  <header class="docs-header"><strong>VoHive<span class="brand-x">X</span></strong><span>API 文档 · Swagger UI 5.32.15</span></header>
+  <div id="docs-status" class="docs-status" role="status" aria-live="polite">正在加载 API 文档…</div>
+  <main id="swagger-ui"></main>
+  <script src="/api/docs/assets/5.32.15/swagger-ui-bundle.js"></script>
+  <script>
+  (async function () {
+    const status = document.getElementById('docs-status');
+    let token = '';
+    try { token = String(localStorage.getItem('token') || '').trim(); } catch (_) {}
+    function fail(message) { status.classList.add('error'); status.textContent = message; }
+    if (!token) { fail('请先在 VoHiveX 后台完成登录，然后刷新此页面查看接口文档。'); return; }
+    try {
+      const res = await fetch('/api/openapi.json', {headers:{Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});
+      if (!res.ok) throw new Error(res.status === 401 ? '登录已失效，请在 VoHiveX 后台重新登录后刷新此页面。' : 'API 文档加载失败（HTTP '+res.status+'），请稍后刷新重试。');
+      const spec = await res.json();
+      if (spec.info) spec.info.title = 'VoHiveX API';
+      window.ui = SwaggerUIBundle({
+        spec, dom_id:'#swagger-ui', deepLinking:true, filter:true,
+        docExpansion:'list', displayRequestDuration:true, persistAuthorization:false,
+        validatorUrl:null, queryConfigEnabled:false,
+        presets:[SwaggerUIBundle.presets.apis], layout:'BaseLayout',
+        requestInterceptor(request) {
+          const url = new URL(request.url, location.href);
+          if (url.origin !== location.origin) throw new Error('接口调试仅允许请求当前 VoHiveX 服务。');
+          request.headers = request.headers || {};
+          if (!request.headers.Authorization) request.headers.Authorization = 'Bearer '+token;
+          return request;
+        },
+        onComplete() { window.ui.preauthorizeApiKey('BearerAuth', token); }
+      });
+      status.textContent = '文档已就绪。接口调试会使用当前登录身份，请按需展开接口并点击 Try it out。';
+    } catch (error) { fail(error.message || '文档加载失败，请刷新重试。'); }
+  })();
+  </script>
+</body>
+</html>
