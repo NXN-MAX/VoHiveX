@@ -64,7 +64,7 @@ VoHiveX 自有新增部分采用[个人非商业许可](LICENSE)。这不是 OSI
 
 ## Docker 镜像与默认登录
 
-镜像：`ghcr.io/nxn-max/vohivex:2.0.0`（也提供 `latest` 和 `v2.0.0`）。同一个镜像地址自动选择主机架构：
+镜像：`ghcr.io/nxn-max/vohivex:2.0.0`；Docker Hub 同步地址：`maxnxxn/vohivex:2.0.0`（也提供 `latest` 和 `v2.0.0`）。同一个镜像地址自动选择主机架构：
 
 | 架构 | Docker 平台 | 独立标签 |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ docker compose up -d
 
 ### GitHub 自动构建
 
-推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.0`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。工作流使用 GitHub 提供的临时 `GITHUB_TOKEN`，无需另外填写 Docker Hub 密码。
+推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.0`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。GHCR 使用 GitHub 提供的临时 `GITHUB_TOKEN`。配置仓库变量 `DOCKERHUB_USERNAME` 和仓库密钥 `DOCKERHUB_TOKEN` 后，同一工作流会将通过测试的三种架构同步发布到 Docker Hub；不需要订阅 Docker Hub 自动构建服务。设置步骤见 [Docker Hub 说明](DOCKERHUB.md)。
 
 ARM 镜像会进行 QEMU 启动测试；硬件驱动、USB 接口与运营商功能仍需在对应设备上验证。
 
