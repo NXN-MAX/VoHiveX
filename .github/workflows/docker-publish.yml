@@ -1,4 +1,4 @@
-name: Build VoHiveX Docker Image
+name: Build and Publish VoHiveX Docker Images
 
 on:
   push:
@@ -10,18 +10,33 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  docker:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+          - arch: armv7
+            platform: linux/arm/v7
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install build-only UPX on the CI runner
@@ -29,16 +44,78 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y upx-ucl
       - name: Prepare and verify pinned build inputs
-        run: python3 app/prepare-build.py
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build Linux amd64 image
+        run: python3 app/prepare-build.py --arch ${{ matrix.arch }}
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm
+      - uses: docker/setup-buildx-action@v3
+      - name: Image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Build architecture image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.vohivex
-          platforms: linux/amd64
-          push: false
-          tags: vohivex:2.0.0
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: vohivex:test-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Test first startup and preserved credentials
+        run: |
+          docker run --rm --platform '${{ matrix.platform }}' \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            --cap-drop ALL --cap-add DAC_OVERRIDE \
+            --entrypoint python3 \
+            -v "$PWD/app/smoke-test.py:/tmp/smoke-test.py:ro" \
+            vohivex:test-${{ matrix.arch }} /tmp/smoke-test.py
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push tested architecture image
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker tag "vohivex:test-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
+          docker push "$IMAGE:sha-$GITHUB_SHA-$ARCH"
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish all three architectures together
+        shell: bash
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          VERSION="$(python3 -c 'import json,re; v=json.load(open("versions.json"))["stable"].removeprefix("v"); assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",v); print(v)')"
+          if [[ "$GITHUB_REF" == refs/tags/* && "${GITHUB_REF#refs/tags/}" != "v$VERSION" ]]; then
+            echo 'Version tag must match versions.json' >&2
+            exit 1
+          fi
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:v$VERSION" -t "$IMAGE:latest" \
+            "$IMAGE:sha-$GITHUB_SHA-amd64" \
+            "$IMAGE:sha-$GITHUB_SHA-arm64" \
+            "$IMAGE:sha-$GITHUB_SHA-armv7"
+          for ARCH in amd64 arm64 armv7; do
+            docker buildx imagetools create -t "$IMAGE:$VERSION-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
+          done
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
