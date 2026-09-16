@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 root = Path(__file__).resolve().parents[2]
 manifest = json.loads((root/'app/patch-manifest.json').read_text())
 report = json.loads((root/'release/patch-result.json').read_text())
-binary = (root/'release/vohive-dji-amd64').read_bytes()
+binary = (root/'release/vohivex-amd64').read_bytes()
 assert hashlib.sha256(binary).hexdigest() == report['patched_sha256']
 version = 'DJI26095'
 out = root/'app/scheduler/assets'
