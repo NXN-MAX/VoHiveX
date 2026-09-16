@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Read-only validation of the prepared Linux amd64 Docker build context."""
+import ast
+import fnmatch
+import hashlib
+import json
+from pathlib import Path
+import shlex
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def verify(root=ROOT):
+    errors = []
+    checked = set()
+    def require(name):
+        path = root / name
+        if not path.is_file() or path.is_symlink():
+            errors.append(f'Missing or symlinked build input: {name}')
+            return None
+        checked.add(name)
+        return path
+
+    for name in ('Dockerfile', 'Dockerfile.vohivex', 'docker-compose.yml',
+                 'docker-compose.single.yml', '.dockerignore'):
+        require(name)
+    for left, right in [('Dockerfile', 'Dockerfile.vohivex'),
+                        ('docker-compose.yml', 'docker-compose.single.yml')]:
+        if (root / left).is_file() and (root / right).is_file():
+            if (root / left).read_bytes() != (root / right).read_bytes():
+                errors.append(f'Build entrypoints differ: {left}, {right}')
+
+    # Current ignore file uses *, explicit negations, and directory negations.
+    patterns = (root / '.dockerignore').read_text().splitlines() if (root / '.dockerignore').is_file() else []
+    def included(name):
+        allowed = True
+        for pattern in patterns:
+            pattern = pattern.strip()
+            if not pattern or pattern.startswith('#'):
+                continue
+            negative = pattern.startswith('!')
+            pattern = pattern.lstrip('!').rstrip('/')
+            if fnmatch.fnmatchcase(name, pattern) or name.startswith(pattern + '/'):
+                allowed = negative
+        return allowed
+
+    dockerfile = root / 'Dockerfile.vohivex'
+    if dockerfile.is_file():
+        for line in dockerfile.read_text().splitlines():
+            if not line.startswith('COPY '):
+                continue
+            for source in shlex.split(line)[1:-1]:
+                path = root / source
+                files = sorted(p for p in path.rglob('*') if p.is_file()) if path.is_dir() else [path]
+                if not files:
+                    errors.append(f'Empty Docker COPY source: {source}')
+                for path in files:
+                    name = path.relative_to(root).as_posix()
+                    if require(name) and not included(name):
+                        errors.append(f'Docker COPY input excluded by .dockerignore: {name}')
+
+    for name in ('app/scheduler/assets/index.html', 'app/scheduler/assets/build-info.json',
+                 'app/scheduler/assets/api/docs/index.html'):
+        require(name)
+    reports = [('release/patch-result.json', 'release/vohive-dji-amd64', 'patched_sha256'),
+               ('app/proxy/vendor/manifest.json', 'app/proxy/vendor/mihomo-linux-amd64-compatible', None)]
+    for report_name, binary_name, key in reports:
+        report_path, binary_path = require(report_name), require(binary_name)
+        if not report_path or not binary_path:
+            continue
+        report = json.loads(report_path.read_text())
+        expected = report[key] if key else next(b['sha256'] for b in report['binaries'] if b['arch']=='linux-amd64-compatible')
+        data = binary_path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != expected:
+            errors.append(f'Binary checksum mismatch: {binary_name}')
+        if data[:5] != b'\x7fELF\x02' or int.from_bytes(data[18:20], 'little') != 62:
+            errors.append(f'Not a Linux amd64 ELF binary: {binary_name}')
+    for name in sorted(checked):
+        if name.endswith('.py'):
+            ast.parse((root / name).read_text(), filename=name)
+    if errors:
+        raise SystemExit('\n'.join(errors))
+    print(f'Build inputs OK: {len(checked)} files; binary hashes, amd64, Docker COPY and Python syntax verified.')
+
+
+if __name__ == '__main__':
+    verify()
