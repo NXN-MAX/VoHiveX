@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "jsqr": "1.4.0",
+    "terser": "^5.44.0"
+  }
+}
