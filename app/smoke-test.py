@@ -32,6 +32,8 @@ def main():
     spec.loader.exec_module(initializer)
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
+        (root / 'data').mkdir()
+        (root / 'logs').mkdir()
         config = root / 'config.yaml'
         initializer.prepare(config)
         initial = config.read_bytes()
