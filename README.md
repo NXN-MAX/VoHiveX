@@ -4,7 +4,7 @@
 
 **原作者：[iniwex5](https://github.com/iniwex5)** · 原项目：[VoHive](https://github.com/iniwex5/vohive)
 
-**VoHiveX 作者：[NXN-MAX](https://github.com/NXN-MAX)** · **版本：2.0.0**
+**VoHiveX 作者：[NXN-MAX](https://github.com/NXN-MAX)** · **版本：2.0.1**
 
 VoHiveX 基于 VoHive 扩展，保留原项目的设备、短信、eSIM 和 VoWiFi 能力，增加大疆模组适配、定时短信和 Mihomo 代理管理，并重新设计管理界面。感谢原作者提供的基础工作。
 
@@ -64,13 +64,13 @@ VoHiveX 自有新增部分采用[个人非商业许可](LICENSE)。这不是 OSI
 
 ## Docker 镜像与默认登录
 
-镜像：`ghcr.io/nxn-max/vohivex:2.0.0`；Docker Hub 同步地址：`maxnxxn/vohivex:2.0.0`（也提供 `latest` 和 `v2.0.0`）。同一个镜像地址自动选择主机架构：
+镜像：`ghcr.io/nxn-max/vohivex:2.0.1`；Docker Hub 同步地址：`maxnxxn/vohivex:2.0.1`（也提供 `latest` 和 `v2.0.1`）。同一个镜像地址自动选择主机架构：
 
 | 架构 | Docker 平台 | 独立标签 |
 | --- | --- | --- |
-| AMD64 | `linux/amd64` | `2.0.0-amd64` |
-| ARM64 | `linux/arm64` | `2.0.0-arm64` |
-| ARMv7 | `linux/arm/v7` | `2.0.0-armv7` |
+| AMD64 | `linux/amd64` | `2.0.1-amd64` |
+| ARM64 | `linux/arm64` | `2.0.1-arm64` |
+| ARMv7 | `linux/arm/v7` | `2.0.1-armv7` |
 
 - **默认端口：`7575`**（主机与容器均为此端口）。
 - **默认账号：`admin`**。
@@ -82,7 +82,7 @@ VoHiveX 自有新增部分采用[个人非商业许可](LICENSE)。这不是 OSI
 宿主机需要 Docker Compose，以及与其内核匹配的 `option`、`qmi_wwan` 和依赖模块。无需在宿主机安装构建依赖。
 
 1. 下载仓库中的 `docker-compose.yml` 和 `.env.example`，放在同一目录。
-2. 将 `.env.example` 复制为 `.env`；在部署主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。
+2. 将 `.env.example` 复制为 `.env`；内核版本由容器自动识别，无需填写。
 3. 默认 `VOHIVE_BIND_IP=127.0.0.1`。需要局域网访问时，在 `.env` 中设置主机的局域网地址。
 4. 拉取镜像并启动：
 
@@ -97,7 +97,7 @@ docker compose up -d
 
 ### GitHub 自动构建
 
-推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.0`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。GHCR 使用 GitHub 提供的临时 `GITHUB_TOKEN`。配置仓库变量 `DOCKERHUB_USERNAME` 和仓库密钥 `DOCKERHUB_TOKEN` 后，同一工作流会将通过测试的三种架构同步发布到 Docker Hub；不需要订阅 Docker Hub 自动构建服务。设置步骤见 [Docker Hub 说明](DOCKERHUB.md)。
+推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.1`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。GHCR 使用 GitHub 提供的临时 `GITHUB_TOKEN`。配置仓库变量 `DOCKERHUB_USERNAME` 和仓库密钥 `DOCKERHUB_TOKEN` 后，同一工作流会将通过测试的三种架构同步发布到 Docker Hub；不需要订阅 Docker Hub 自动构建服务。设置步骤见 [Docker Hub 说明](DOCKERHUB.md)。
 
 ARM 镜像会进行 QEMU 启动测试；硬件驱动、USB 接口与运营商功能仍需在对应设备上验证。
 
@@ -108,7 +108,7 @@ ARM 镜像会进行 QEMU 启动测试；硬件驱动、USB 接口与运营商功
 ```sh
 python3 app/prepare-build.py
 # 本机架构镜像：
-docker build -t vohivex:2.0.0 .
+docker build -t vohivex:2.0.1 .
 # 多架构构建由仓库内 GitHub Actions 自动完成。
 ```
 
@@ -140,6 +140,6 @@ docker build -t vohivex:2.0.0 .
 
 ![VoHiveX 定时任务：暂停状态的虚构任务](docs/images/tasks.png)
 
-## 内核版本配置
+## 自动识别内核
 
-复制 `.env.example` 为 `.env`，在实际部署的 Linux 主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。此项不能为空：Compose 会在启动前检查；驱动入口还会再次核对运行中的内核版本，不一致时停止加载。不要填写构建机的内核版本；宿主机更新内核后应重新核对驱动兼容性。
+容器启动时自动识别宿主机当前运行的内核，无需填写或指定内核版本。已加载的驱动直接复用；未加载时从挂载的 `/lib/modules/<当前内核版本>` 加载 `option`、`qmi_wwan` 及依赖。目录缺失或加载失败会报告错误并停止初始化，不安装驱动包、不替换内核。升级宿主机内核后，需确保宿主机提供对应驱动。
