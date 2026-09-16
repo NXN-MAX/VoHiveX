@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM alpine:3.20 AS binaries
 ARG TARGETARCH
 ARG TARGETVARIANT
-COPY release/vohive-dji-* /inputs/release/
+COPY release/vohivex-* /inputs/release/
 COPY app/proxy/vendor/mihomo-linux-* /inputs/proxy/
 RUN case "$TARGETARCH/$TARGETVARIANT" in \
       amd64/) app_arch=amd64; proxy_arch=amd64-compatible ;; \
@@ -10,7 +10,7 @@ RUN case "$TARGETARCH/$TARGETVARIANT" in \
       arm/v7) app_arch=armv7; proxy_arch=armv7 ;; \
       *) echo "Unsupported platform: $TARGETARCH/$TARGETVARIANT" >&2; exit 1 ;; \
     esac && mkdir /out && \
-    cp "/inputs/release/vohive-dji-$app_arch" /out/vohive && \
+    cp "/inputs/release/vohivex-$app_arch" /out/vohive && \
     cp "/inputs/proxy/mihomo-linux-$proxy_arch" /out/mihomo && \
     chmod 755 /out/vohive /out/mihomo
 

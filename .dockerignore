@@ -2,7 +2,7 @@
 !Dockerfile
 !docker-entrypoint.sh
 !release/
-!release/vohive-dji-*
+!release/vohivex-*
 !Dockerfile.vohivex
 !app/
 !app/driver.sh

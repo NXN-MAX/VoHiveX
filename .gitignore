@@ -25,7 +25,7 @@ id_ed25519*
 *secret*.json
 
 # Generated binaries, assets and packages
-release/vohive-dji-*
+release/vohivex-*
 app/proxy/vendor/mihomo-*
 app/scheduler/assets/
 dist/

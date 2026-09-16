@@ -266,8 +266,8 @@ locate_local_binary() {
   if [ -n "${LOCAL_BINARY}" ]; then
     return 0
   fi
-  if [ "$arch" = amd64 ] && [ -f "${RELEASE_DIR}/vohive-dji-amd64" ]; then
-    LOCAL_BINARY="${RELEASE_DIR}/vohive-dji-amd64"
+  if [ "$arch" = amd64 ] && [ -f "${RELEASE_DIR}/vohivex-amd64" ]; then
+    LOCAL_BINARY="${RELEASE_DIR}/vohivex-amd64"
     return 0
   fi
   for candidate in \
