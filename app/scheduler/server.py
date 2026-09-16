@@ -23,7 +23,7 @@ from notifications import Dispatcher, NotificationWorker
 from delivery import DeliveryWorker
 
 UPSTREAM_HOST = os.environ.get('VOHIVE_UPSTREAM_HOST', '127.0.0.1')
-UPSTREAM_PORT = int(os.environ.get('VOHIVE_UPSTREAM_PORT', '7575'))
+UPSTREAM_PORT = int(os.environ.get('VOHIVE_UPSTREAM_PORT', '7576'))
 ASSETS = Path(os.environ.get('SCHEDULER_ASSETS', '/opt/vohivex/scheduler/assets'))
 CONFIG = Path(os.environ.get('CONFIG_PATH', '/app/config/config.yaml'))
 STORE = None
@@ -547,7 +547,7 @@ if __name__ == '__main__':
             if worker.stop.wait(5): break
     proxy_thread = threading.Thread(target=maintain_proxy,daemon=True)
     proxy_thread.start()
-    server = ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('SCHEDULER_PORT','7576'))), Handler)
+    server = ThreadingHTTPServer(('0.0.0.0', int(os.environ.get('SCHEDULER_PORT','7575'))), Handler)
     server.daemon_threads = True
     def shutdown(*_):
         worker.stop.set()
