@@ -12,6 +12,7 @@ stop_children() {
 trap 'stop_children; exit 0' TERM INT
 trap stop_children EXIT
 
+python3 -B /opt/vohivex/init-config.py
 /bin/sh /opt/vohivex/driver.sh run & driver_pid=$!
 # Allow driver initialization before existing device workers start. The UI still
 # starts without a plugged-in modem; the driver loop handles later enumeration.

@@ -26,17 +26,17 @@ def main():
         '.dockerignore', '.env.example', 'LICENSE', 'Dockerfile', 'Dockerfile.vohivex',
         'docker-compose.yml', 'docker-compose.single.yml', 'DEPLOY.md',
         'release/vohive-dji-amd64', 'release/patch-result.json',
-        'app/driver-lib.sh', 'app/driver.sh', 'app/single-start.sh', 'app/verify-build.py',
+        'app/init-config.py', 'app/driver-lib.sh', 'app/driver.sh', 'app/single-start.sh', 'app/verify-build.py',
         'app/scheduler/server.py', 'app/scheduler/engine.py', 'app/scheduler/account.py',
         'app/scheduler/managed_proxy.py', 'app/scheduler/egress_ip.py',
         'app/scheduler/notifications.py', 'app/scheduler/delivery.py',
         'app/proxy/vendor/mihomo-linux-amd64-compatible',
         'app/proxy/vendor/manifest.json', 'app/proxy/vendor/LICENSE.mihomo',
         'app/proxy/vendor/LICENSE.jsQR', 'app/proxy/THIRD-PARTY.md',
-    ] + files_in('app/scheduler/assets')
+    ] + [f'release/{name}' for name in ('vohive-dji-arm64', 'vohive-dji-armv7', 'patch-result-arm64.json', 'patch-result-armv7.json')] + [f'app/proxy/vendor/mihomo-linux-{arch}' for arch in ('arm64','armv7')] + files_in('app/scheduler/assets')
     extra = ['README.md', 'DOCKERHUB.md', '.gitignore', 'app/README.md',
              'app/proxy/README.md', 'app/patch-manifest.json', 'app/patch-release.py',
-             'app/package-single.py', 'app/prepare-build.py', 'app/build-tools/package.json', 'app/build-tools/package-lock.json']
+             'app/package-single.py', 'app/prepare-build.py', 'app/smoke-test.py', 'app/patch-manifest-arm64.json', 'app/patch-manifest-armv7.json', 'app/build-tools/package.json', 'app/build-tools/package-lock.json']
     extra += [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / 'app/scheduler').iterdir())
               if p.is_file() and p.suffix in ('.py', '.js', '.css', '.md')]
     extra += files_in('app/frontend', {'.py', '.cjs', '.js', '.css', '.json', '.svg', '.md'})
