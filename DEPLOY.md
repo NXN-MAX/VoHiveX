@@ -1,40 +1,39 @@
-# VoHiveX 部署包
+# VoHiveX 部署
 
-支持 Linux amd64。部署包包含定制二进制、已生成的前端、Mihomo 和 Docker 构建文件，不需要在部署主机安装 Node.js 或重新构建前端。
+支持 Linux AMD64、ARM64、ARMv7。推荐直接拉取 `ghcr.io/nxn-max/vohivex:2.0.0`；Docker 自动选择对应架构。
 
-## 检查与启动
+## 默认访问
 
-1. 解压后进入 `VoHiveX` 目录，执行 `sha256sum -c SHA256SUMS` 核对文件完整性；目录可自行重命名。
-2. 宿主机应已提供与当前内核匹配的 `option`、`qmi_wwan` 及依赖模块，并已安装 Docker Compose。
-3. 准备 `config/config.yaml`，设置独立的登录密码。在 `.env` 中设置 `VOHIVE_BIND_IP` 和 `DRIVER_KERNEL`；内核版本应与宿主机 `uname -r` 的结果一致。
-4. 执行以下命令：
+- 网页端口：`7575`（容器端口也为 `7575`）。
+- 默认账号：`admin`。
+- 默认密码：`admin`。
+
+只在配置不存在时创建默认账号密码，已有配置不会重置。首次登录后修改密码。
+
+## 拉取与启动
+
+1. 宿主机应已提供与当前内核匹配的 `option`、`qmi_wwan` 及依赖模块，并已安装 Docker Compose。
+2. 将 `docker-compose.yml` 与 `.env.example` 放在同一目录，复制 `.env.example` 为 `.env`。
+3. 在部署主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。该项不能为空，内核版本不匹配时停止加载。
+4. 设置 `VOHIVE_BIND_IP`。默认 `127.0.0.1` 仅允许本机访问，局域网访问需填写主机的局域网地址。
+5. 执行：
 
 ```sh
 docker compose config --quiet
-docker compose build
+docker compose pull
 docker compose up -d
 ```
 
-浏览器访问 `http://<主机地址>:7575`。默认仅绑定 `127.0.0.1`，局域网访问需设置主机绑定地址。
+访问 `http://<主机地址>:7575`。初始化自动生成最小配置，无需手动准备账号密码。
 
-`Dockerfile` 与 `Dockerfile.vohivex` 内容一致；两份 Compose 文件也一致。可选执行 `python3 app/verify-build.py` 检查构建输入；这不代替实际构建镜像和设备验证。
+## 更新与数据
 
-## 更新
+更新前停止容器并备份 `.env`、`config`、`data`、`logs`、`driver-state` 及部署配置。更新不覆盖用户数据。旧配置只将核心服务端口迁移为 `127.0.0.1:7576`，账号密码和其他设置保留；旧 Compose 的网页映射及健康检查需要同步改为容器端口 `7575`。
 
-停止容器并备份原部署目录中的 `.env`、`config`、`data`、`logs`、`driver-state` 及部署配置。更新时保留这些文件；发布包不包含个人配置和数据。重新构建并启动后，检查容器健康状态及设备在线状态。
+## 从源码或部署包构建
 
-## 完整构建包
+源码构建机需要 Python 3、Node.js/npm、UPX；运行 `python3 app/prepare-build.py` 后执行 `docker build -t vohivex:2.0.0 .`。完整部署包已包含三种架构程序与生成的前端，可直接构建，无需在部署主机安装前端依赖。
 
-`VoHiveX-single.zip` 额外包含前端构建脚本、字体、图标与文档。在安装 Python 3、Node.js/npm 的开发机中，可执行：
+发布包附带 `SHA256SUMS`，解压后先执行 `sha256sum -c SHA256SUMS`。`python3 app/package-single.py` 生成 `dist/VoHiveX-deploy.zip` 与包含构建源码的 `dist/VoHiveX-single.zip`。
 
-```sh
-npm ci --prefix app/build-tools
-python3 app/scheduler/build-assets.py
-python3 app/package-single.py
-```
-
-输出位于 `dist/`。部署包 `VoHiveX-deploy.zip` 只提供镜像构建输入，不提供重新生成前端和再次打包的工具。
-
-## 内核版本配置
-
-复制 `.env.example` 为 `.env`，在实际部署的 Linux 主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。此项不能为空：Compose 会在启动前检查；驱动入口还会再次核对运行中的内核版本，不一致时停止加载。不要填写构建机的内核版本；宿主机更新内核后应重新核对驱动兼容性。
+Compose 默认从 GHCR 拉取已发布镜像。本地构建镜像如需用于部署，应将 Compose 的 `image` 改为本地标签，并将 `pull_policy` 改为 `never`。

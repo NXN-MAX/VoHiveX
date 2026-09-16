@@ -1,11 +1,8 @@
 name: vohivex
 services:
   vohive:
-    image: vohivex-local:2.0.0
-    build:
-      context: .
-      dockerfile: Dockerfile.vohivex
-    pull_policy: build
+    image: ghcr.io/nxn-max/vohivex:2.0.0
+    pull_policy: always
     container_name: VoHiveX
     restart: unless-stopped
     init: true
@@ -14,7 +11,7 @@ services:
     cap_add: [SYS_MODULE, SETPCAP, DAC_OVERRIDE]
     security_opt: [no-new-privileges:true]
     ports:
-      - "${VOHIVE_BIND_IP:-127.0.0.1}:7575:7576"
+      - "${VOHIVE_BIND_IP:-127.0.0.1}:7575:7575"
     environment:
       TZ: Asia/Shanghai
       CONFIG_PATH: /app/config/config.yaml
@@ -41,7 +38,7 @@ services:
       - /dev:/dev
       - /sys:/sys:ro
     healthcheck:
-      test: [CMD-SHELL, '/bin/sh /opt/vohivex/driver.sh health && wget -q --spider http://127.0.0.1:7576/']
+      test: [CMD-SHELL, '/bin/sh /opt/vohivex/driver.sh health && wget -q --spider http://127.0.0.1:7575/']
       interval: 10s
       timeout: 5s
       retries: 6

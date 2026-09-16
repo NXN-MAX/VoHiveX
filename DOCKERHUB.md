@@ -1,29 +1,16 @@
-# VoHiveX
+# VoHiveX Docker 镜像
 
-个人模组管理与测试平台，包含设备管理、短信、eSIM/eUICC、VoWiFi、定时任务和 Mihomo 代理管理。
+官方构建位置：`ghcr.io/nxn-max/vohivex`（GitHub Container Registry）。本项目目前不向 Docker Hub 发布镜像。
 
-**支持架构：Linux amd64。**
+支持 AMD64、ARM64、ARMv7；标签 `2.0.0`、`v2.0.0` 和 `latest` 自动选择架构，也提供 `2.0.0-amd64`、`2.0.0-arm64`、`2.0.0-armv7`。
 
-> 仅供个人自有设备和合法持有号码的内部测试。严禁商业用途、非本人个人号码接入及任何违法违规用途。
+- 默认网页端口：`7575`。
+- 默认账号：`admin`。
+- 默认密码：`admin`。
+- 仅首次安装生成默认配置，已有账号密码不会重置。
 
-## 构建与启动
+下载 `docker-compose.yml` 与 `.env.example`，复制后者为 `.env`，填写部署主机内核版本 `DRIVER_KERNEL` 和监听地址 `VOHIVE_BIND_IP`，执行 `docker compose pull && docker compose up -d`。
 
-1. 解压完整的 VoHiveX 发布包，准备 `config/config.yaml`，设置独立登录密码。
-2. 在 `.env` 中配置 `VOHIVE_BIND_IP` 和与宿主机一致的 `DRIVER_KERNEL`。
-3. 从项目根目录执行：
+详细步骤见 [部署说明](DEPLOY.md)。保留 `.env`、`config`、`data`、`logs`、`driver-state`，不要将用户数据加入镜像。
 
-```sh
-docker compose -f docker-compose.single.yml up -d --build
-```
-
-构建使用 `Dockerfile.vohivex`、`release/` 下的定制版二进制及 `app/` 中的程序资源。不要用旧上游镜像代替当前定制构建。
-
-## 访问与数据
-
-浏览器访问 `http://<主机地址>:7575`，使用配置文件中设置的账号登录。默认监听地址为 `127.0.0.1`。
-
-升级前停止容器并备份 `.env`、`config`、`data`、`logs` 与 `driver-state`，更新程序时保留这些目录。
-
-## 内核版本配置
-
-复制 `.env.example` 为 `.env`，在实际部署的 Linux 主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。此项不能为空：Compose 会在启动前检查；驱动入口还会再次核对运行中的内核版本，不一致时停止加载。不要填写构建机的内核版本；宿主机更新内核后应重新核对驱动兼容性。
+仅供个人自有设备和合法持有号码的内部测试。严禁商业用途、非本人个人号码接入及任何违法违规用途。
