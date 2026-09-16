@@ -19,7 +19,7 @@ manifest = json.loads((root / 'app' / manifest_name).read_text())
 original = args.original.resolve()
 if not original.is_file():
     parser.error('Original binary does not exist')
-if original == (root/f'release/vohive-dji-{arch}').resolve():
+if original == (root/f'release/vohivex-{arch}').resolve():
     parser.error('The output release cannot be used as the upstream original')
 sha = lambda data: hashlib.sha256(data).hexdigest()
 assert sha(original.read_bytes()) == manifest['input_sha256'], 'Unsupported upstream binary'
@@ -88,7 +88,7 @@ for old, new in renames.items():
 
 out = root / 'release'
 out.mkdir(exist_ok=True)
-target = out / f'vohive-dji-{arch}'
+target = out / f'vohivex-{arch}'
 target.write_bytes(data)
 target.chmod(0o755)
 report = {'original_sha256': manifest['input_sha256'], 'patched_sha256': sha(data),

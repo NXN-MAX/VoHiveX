@@ -74,7 +74,7 @@ def verify(root=ROOT, arch="all"):
         proxy_arch = 'linux-amd64-compatible' if target == 'amd64' else 'linux-' + target
         proxy = next(b for b in vendor['binaries'] if b['arch'] == proxy_arch)
         elf_class, machine = {'amd64': (2, 62), 'arm64': (2, 183), 'armv7': (1, 40)}[target]
-        for binary_name, expected in [(f'release/vohive-dji-{target}', report['patched_sha256']),
+        for binary_name, expected in [(f'release/vohivex-{target}', report['patched_sha256']),
                                        (f'app/proxy/vendor/mihomo-{proxy_arch}', proxy['sha256'])]:
             binary = require(binary_name)
             if not binary:

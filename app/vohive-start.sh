@@ -4,7 +4,7 @@ case "$(uname -m)" in
   x86_64) ;;
   *) echo 'This release supports Linux amd64 only' >&2; exit 1 ;;
 esac
-binary="/opt/vohive-release/vohive-dji-amd64"
+binary="/opt/vohive-release/vohivex-amd64"
 config="${CONFIG_PATH:-/app/config/config.yaml}"
 [ -s "$binary" ] || { echo "Missing release: $binary" >&2; exit 1; }
 # NAS ZIP extraction may remove executable bits. Use the image copy only
