@@ -119,3 +119,46 @@ jobs:
             docker buildx imagetools create -t "$IMAGE:$VERSION-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
           done
           docker buildx imagetools inspect "$IMAGE:$VERSION"
+
+  dockerhub:
+    if: github.event_name != 'pull_request' && vars.DOCKERHUB_USERNAME != ''
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Install registry copy tool on the CI runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+      - name: Copy tested images and publish Docker Hub tags
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+        shell: bash
+        run: |
+          SOURCE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          IMAGE="docker.io/$DOCKERHUB_USERNAME/vohivex"
+          VERSION="$(python3 -c 'import json,re; v=json.load(open("versions.json"))["stable"].removeprefix("v"); assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",v); print(v)')"
+          for ARCH in amd64 arm64 armv7; do
+            skopeo copy --all --retry-times 3 \
+              --dest-authfile "$HOME/.docker/config.json" \
+              "docker://$SOURCE:sha-$GITHUB_SHA-$ARCH" \
+              "docker://$IMAGE:sha-$GITHUB_SHA-$ARCH"
+          done
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:v$VERSION" -t "$IMAGE:latest" \
+            "$IMAGE:sha-$GITHUB_SHA-amd64" \
+            "$IMAGE:sha-$GITHUB_SHA-arm64" \
+            "$IMAGE:sha-$GITHUB_SHA-armv7"
+          for ARCH in amd64 arm64 armv7; do
+            docker buildx imagetools create -t "$IMAGE:$VERSION-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
+          done
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
