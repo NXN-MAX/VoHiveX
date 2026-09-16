@@ -1,0 +1,52 @@
+name: vohivex
+services:
+  vohive:
+    image: vohivex-local:2.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile.vohivex
+    pull_policy: build
+    container_name: VoHiveX
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [SYS_MODULE, SETPCAP, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "${VOHIVE_BIND_IP:-127.0.0.1}:7575:7576"
+    environment:
+      TZ: Asia/Shanghai
+      CONFIG_PATH: /app/config/config.yaml
+      EXPECTED_KERNEL: "${DRIVER_KERNEL:?Set DRIVER_KERNEL in .env to the verified host uname -r}"
+    device_cgroup_rules:
+      - c 188:* rw
+      - c 180:* rw
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=16m
+    volumes:
+      - type: bind
+        source: /lib/modules
+        target: /lib/modules
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /sys
+        target: /host-sys
+        bind: {create_host_path: false}
+      - ./driver-state:/state
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - /dev:/dev
+      - /sys:/sys:ro
+    healthcheck:
+      test: [CMD-SHELL, '/bin/sh /opt/vohivex/driver.sh health && wget -q --spider http://127.0.0.1:7576/']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: "2"}
