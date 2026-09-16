@@ -11,21 +11,21 @@
 
 ## 构建
 
-镜像由 GitHub Actions 按 `linux/amd64`、`linux/arm64`、`linux/arm/v7` 分别构建，运行启动测试后发布到 `ghcr.io/nxn-max/vohivex`。拉取 `2.0.0` 或 `latest` 时会自动选择架构。
+镜像由 GitHub Actions 按 `linux/amd64`、`linux/arm64`、`linux/arm/v7` 分别构建，运行启动测试后发布到 `ghcr.io/nxn-max/vohivex`。拉取 `2.0.1` 或 `latest` 时会自动选择架构。
 
 从源码首次构建时，在构建机准备 Python 3、Node.js/npm 和 UPX，然后运行：
 
 ```sh
 python3 app/prepare-build.py
 python3 app/verify-build.py
-docker build -f Dockerfile.vohivex -t vohivex:2.0.0 .
+docker build -f Dockerfile.vohivex -t vohivex:2.0.1 .
 ```
 
 可用 `--arch amd64`、`--arch arm64` 或 `--arch armv7` 仅准备所需架构；共享前端始终从经过校验的 AMD64 程序提取。三种架构使用独立的版本锁定清单与 SHA256，不对其他上游版本套用偏移补丁。`patch-release.py --arch <架构> --original /path/to/original` 可单独重建对应补丁。
 
 ## 配置与启动
 
-1. 复制 `.env.example` 为 `.env`，设置 `VOHIVE_BIND_IP` 和与部署主机 `uname -r` 一致的 `DRIVER_KERNEL`。
+1. 复制 `.env.example` 为 `.env`，设置 `VOHIVE_BIND_IP`；内核版本自动识别。
 2. 执行：
 
 ```sh
@@ -86,6 +86,6 @@ docker compose -f docker-compose.single.yml down
 - [品牌资源](branding/README.md)
 - [第三方组件与许可](proxy/THIRD-PARTY.md)
 
-## 内核版本配置
+## 自动识别内核
 
-复制 `.env.example` 为 `.env`，在实际部署的 Linux 主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。此项不能为空：Compose 会在启动前检查；驱动入口还会再次核对运行中的内核版本，不一致时停止加载。不要填写构建机的内核版本；宿主机更新内核后应重新核对驱动兼容性。
+容器启动时自动识别宿主机当前运行的内核，无需填写或指定内核版本。已加载的驱动直接复用；未加载时从挂载的 `/lib/modules/<当前内核版本>` 加载 `option`、`qmi_wwan` 及依赖。目录缺失或加载失败会报告错误并停止初始化，不安装驱动包、不替换内核。升级宿主机内核后，需确保宿主机提供对应驱动。

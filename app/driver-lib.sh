@@ -59,21 +59,32 @@ init_state() {
 }
 
 load_modules() {
+  current_kernel="$(uname -r)"
+  [ -n "$current_kernel" ] || fail 'Cannot detect the running host kernel'
+  log "Using running host kernel: $current_kernel"
   before=' '
   for m in $MODULES; do
     [ ! -d "$SYS/module/$m" ] || before="$before$m "
   done
   # Load in this order so option wins initial serial-interface probing.
   result=0
-  modprobe option || result=1
-  [ "$result" -ne 0 ] || modprobe qmi_wwan || result=1
+  for module in option qmi_wwan; do
+    # Reuse loaded/built-in drivers; modprobe selects the running kernel by default.
+    [ ! -d "$SYS/module/$module" ] || continue
+    if [ ! -d "/lib/modules/$current_kernel" ]; then
+      log "Missing driver directory for running kernel: /lib/modules/$current_kernel"
+      result=1
+      break
+    fi
+    modprobe "$module" || { result=1; break; }
+  done
   for m in $MODULES; do
     case "$before" in *" $m "*) continue ;; esac
     if [ -d "$SYS/module/$m" ] && ! grep -qx "$m" "$STATE/owned-modules" 2>/dev/null; then
       printf '%s\n' "$m" >> "$STATE/owned-modules"
     fi
   done
-  [ "$result" -eq 0 ] || fail 'Loading existing host modules failed; see log and ownership state'
+  [ "$result" -eq 0 ] || fail "Loading host drivers for kernel $current_kernel failed; see log and ownership state"
 }
 
 register_ids() {
