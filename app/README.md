@@ -17,7 +17,7 @@ node app/build-tools/node_modules/terser/bin/terser app/frontend/Settings.js --m
 python3 app/scheduler/build-assets.py
 ```
 
-当前发布文件位于 `release/`，正常构建无需重新生成二进制。需要重建补丁时，单独准备上游原始文件并执行：
+完整部署包的程序文件位于 `release/`。从 Git 获取的源码不包含生成文件，首次构建应先执行 `python3 app/prepare-build.py`。需要单独重建补丁时，准备上游原始文件并执行：
 
 ```sh
 python3 app/patch-release.py --original /path/to/original-linux-amd64
