@@ -12,6 +12,18 @@
       "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-darwin-arm64-v1.19.31.gz",
       "archive_sha256": "d131f44b3deb2a8356f7ac75048ad67a10d53243323951c4f3cda7b672922963",
       "sha256": "fae1f37e28ee53fcf5be7a8bb121099db1fe442e44205734ed49c62579364090"
+    },
+    {
+      "arch": "linux-arm64",
+      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-linux-arm64-v1.19.31.gz",
+      "archive_sha256": "9e0f11afbf38426b8bd88fdc594678f8161c57eccb4e1b77acb12b493904f1d4",
+      "sha256": "1b315bc038d05f84ee86d232f3c3d2b020b5044e9b971bb8fe215b6e6a2148f3"
+    },
+    {
+      "arch": "linux-armv7",
+      "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-linux-armv7-v1.19.31.gz",
+      "archive_sha256": "a61115819d9ebd568788b0f1bddfa6c9c03458071abdbda80f79291cac0276e1",
+      "sha256": "1f0d082b19a51a31f04de29c3db28c8145e499dc5ab01cccf12376cf7fc71777"
     }
   ]
 }
