@@ -1,0 +1,349 @@
+{
+  "commit": "9fb7967c0a4c09910161192bde99efd3df09f5eb",
+  "files": {
+    "eye-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/eye-line.svg",
+      "sha256": "0101daab7743cbeecf16406e5c449c26eff56be4d5b94d5dcd4d1a36d49e77f0"
+    },
+    "eye-off-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/eye-off-line.svg",
+      "sha256": "4a862972803b8ecbed2d162e189252d0e9a743afddceda2b7c6d776d660aa820"
+    },
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/License",
+      "sha256": "6f2f21c5f8db34635d31848e9ff831d5dc421bb83ffc9d37f82651364047ae58"
+    },
+    "dashboard-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/dashboard-line.svg",
+      "sha256": "83f9d1c1eb2b9ed461fda9758c7b80708b6bcaa7c603fbd74ea24137b5862b6a"
+    },
+    "smartphone-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/smartphone-line.svg",
+      "sha256": "306c8aea02ba8eef5c8364733f0b0e96ad8d13ac48a122dfd756a79846979b29"
+    },
+    "global-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/global-line.svg",
+      "sha256": "942d9b0e37ffea615e2c740185fd2efa09dea21de34f3203c9fd8d6f80cb6cb2"
+    },
+    "message-2-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Communication/message-2-line.svg",
+      "sha256": "54576f9e9c0ce30ccb5a25e2078d46fe618fd4404e5c1979ab26391a87d153e8"
+    },
+    "calendar-schedule-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/calendar-schedule-line.svg",
+      "sha256": "5639ac928ae02cf26e1f5cf7a9a7c7922ab60b92550b8d1757e62fd182761d81"
+    },
+    "file-list-3-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Document/file-list-3-line.svg",
+      "sha256": "f90b0760329c60892afb682c566c515543ddc6525a0504a64a548d77b4a847e7"
+    },
+    "settings-3-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/settings-3-line.svg",
+      "sha256": "f2e1fd30e6eadb8d5636f5037cf477f38ef81b235757d3ed290b92b2c002fec1"
+    },
+    "add-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/add-line.svg",
+      "sha256": "b03a98dbb2f1d4c1aed7987ce4be58b6af4b4be8af47b08aadb77c4a35d6a645"
+    },
+    "router-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/router-line.svg",
+      "sha256": "89c8b34109eb0f171138d64688bb6269ee22dbf86ad3e600bfcb0e65fe261a4e"
+    },
+    "wifi-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/wifi-line.svg",
+      "sha256": "d18879521dc78a80316b072807ea769f89a991f93d7400faa463726538fed7b3"
+    },
+    "user-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/User%20%26%20Faces/user-line.svg",
+      "sha256": "44ce27189cac344f59aae27ef4e353f3cc1bafc19b1112b682e4cccc6f938a02"
+    },
+    "close-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/close-line.svg",
+      "sha256": "db3b4dcebb2d962a0231a191538bf6939620798b18f0ba52d4b91c5a4649ce54"
+    },
+    "menu-fold-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/menu-fold-line.svg",
+      "sha256": "0c58ab99dfc194c3f09711c49f8bba5bc4807fab85f219f3c06590ac7cc5f450"
+    },
+    "menu-unfold-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/menu-unfold-line.svg",
+      "sha256": "fdea91f5a66191b94a88bcc5328786136d5951a3321fd70f167bc69350e31a32"
+    },
+    "logout-box-r-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/logout-box-r-line.svg",
+      "sha256": "a59e65a894ca1b1af1e7318fd15058441e1b0f16b21290e1dd06ce5098da2624"
+    },
+    "ghost-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/User%20%26%20Faces/ghost-line.svg",
+      "sha256": "8c89bfd46ef5b573fd49339d742b7f018ea1d350fc097223d5561244d7437239"
+    },
+    "sun-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Weather/sun-line.svg",
+      "sha256": "353abcffef6cfeb1a3b4200182564fdce45c906de26f339b154da5bf4af1b796"
+    },
+    "moon-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Weather/moon-line.svg",
+      "sha256": "d87e53116c432cdc6b36972282cd76222f61c50897ae122a2c0a23a93b68670a"
+    },
+    "sim-card-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/sim-card-line.svg",
+      "sha256": "83093f86e5e3b8fe27acb41a42861b65a0e66e7677da0f308eef7722fadbe366"
+    },
+    "terminal-box-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Development/terminal-box-line.svg",
+      "sha256": "25aaa2f4b509309f23d803515a8de083fa4926b2d5bc75536738733b631725aa"
+    },
+    "chat-voice-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Communication/chat-voice-line.svg",
+      "sha256": "fb541bcb904ff3b7687b08feb932582f163afd2ae45dc7dde85f688799299dc7"
+    },
+    "shield-check-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/shield-check-line.svg",
+      "sha256": "d357acefbd5eb7e7b3f0af35e2b468caee6d6d6dbaaeb03d0a9cb59035ee9e8f"
+    },
+    "delete-bin-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/delete-bin-line.svg",
+      "sha256": "a3484fc34454104f58430d605047d353c6f9669fd037b2b30a98d4f58ad66a3e"
+    },
+    "notification-3-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/notification-3-line.svg",
+      "sha256": "23ad1acd177c50df19797c702a3981cd94c1bc9b52092f99381545eed0ab7a7c"
+    },
+    "signal-cellular-1-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/signal-cellular-1-fill.svg",
+      "sha256": "f6b9b38013f60ef71257bebe990ac20c549f0f7944addd5d0cbc340a8552fd5d"
+    },
+    "signal-cellular-2-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/signal-cellular-2-fill.svg",
+      "sha256": "095fd33b805fc07788e4d8a89f118b0d11c86582d31eb2601f3084b83a03dc89"
+    },
+    "signal-cellular-3-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/signal-cellular-3-fill.svg",
+      "sha256": "5bc50bbc909fa6614dafe679453fa96e8fefe05300dc4c344aff22391bca5c3b"
+    },
+    "signal-cellular-off-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/signal-cellular-off-line.svg",
+      "sha256": "bf663d80250aae44c5d53ed407430de010f6fe283bc876466f3bcd5242c9f64d"
+    },
+    "sort-asc.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Editor/sort-asc.svg",
+      "sha256": "1c75c2bd28fae8371d6e481b8e8537ef464f2d239a29b422b7a91cc5570d24b1"
+    },
+    "sort-desc.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Editor/sort-desc.svg",
+      "sha256": "7d9e518b6d6988108a66349e1ebeb7d97387b9843343d3502fc24c6c781ddc1c"
+    },
+    "aspect-ratio-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/aspect-ratio-line.svg",
+      "sha256": "e057f57ded945041817ea560a26c56bb7ce7e96bafc6cc4e4faadfcb206fb3d5"
+    },
+    "arrow-left-double-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-left-double-line.svg",
+      "sha256": "ad65e39e696738aedfb3990db633cd1bbd5f7dea661b1263ee911fbefdf0691e"
+    },
+    "error-warning-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/error-warning-line.svg",
+      "sha256": "f79d26575a711980651d8aa10d70c3c6942051729ea968dfb929ecfc65dac86f"
+    },
+    "anticlockwise-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Design/anticlockwise-line.svg",
+      "sha256": "88a6974c215f5e114a5d419f8455800b3e5ba4003559890e68ceecac8a3e9291"
+    },
+    "check-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/check-line.svg",
+      "sha256": "b83a64bf881169d5edeaa6134a7ba37192f0ddc80c2e2a890578ae0f2f8f9169"
+    },
+    "arrow-right-s-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-right-s-line.svg",
+      "sha256": "2c579a4dbaf25e19a128d71e04f4cf43b19ad2487a0076ff7e7e5a94c9b3e013"
+    },
+    "more-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/more-line.svg",
+      "sha256": "4897d45e2657f65a27e4b50348d22de43a727957fe8426c663294e1ec2506e18"
+    },
+    "arrow-up-s-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-up-s-fill.svg",
+      "sha256": "f86592c46e3ebb372af47d742aee90253d173581c5e3e38347ba259490043a80"
+    },
+    "calendar-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/calendar-line.svg",
+      "sha256": "97a1307f5f723435587f185da18a0046c29907843bad0e66e42a75a45b53e8dc"
+    },
+    "time-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/time-line.svg",
+      "sha256": "68ef3f8af9696a63ae2bd0e798d195f06f21f9b5191a834101b6442b5bb9c26b"
+    },
+    "fullscreen-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/fullscreen-line.svg",
+      "sha256": "4c98301c55d2d8fadc57a0d2cfc06005ef285d48b5d9aec64bfe3023f6429528"
+    },
+    "inbox-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/inbox-line.svg",
+      "sha256": "a79752846e97bd7645536178a79adc08a0f47f7c51ca1a40c4cd421773209ed9"
+    },
+    "arrow-down-s-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-down-s-line.svg",
+      "sha256": "4b0bf8a45d554ba97d8115ef2713010f196ad49d57eeecb8a42d4839a5ba8f9e"
+    },
+    "link.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Editor/link.svg",
+      "sha256": "aaf60e577d407bdee0a603b0e73b56b9cd8a6a33aa2f11a0b11150ea6301afc5"
+    },
+    "zoom-in-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/zoom-in-line.svg",
+      "sha256": "ca0bd2aa82282a71997ab496944d46b95c085a930dd7ff1e74b22070ec79419b"
+    },
+    "image-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/image-fill.svg",
+      "sha256": "3ff53e3bc94a21b0baf9c02990dd05d635e9994345ccac65d7040098616b27fe"
+    },
+    "server-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/server-line.svg",
+      "sha256": "203eb12d2729880f5e847db3c247765934d50a63ff17b270009af97d4dcb7ac8"
+    },
+    "save-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/save-line.svg",
+      "sha256": "f5032d72c4b628cf1f4ef405e613ad05cd31019d6d6ed3b73573dff4dd36f33e"
+    },
+    "more-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/more-fill.svg",
+      "sha256": "f6189eaf04aeb7f380ed6873ece8ab6e5197c78eb0516175c706c1cf025c4b91"
+    },
+    "pause-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/pause-line.svg",
+      "sha256": "82bfb45bf5b77f055ce984fca319d551c4319036520fd8a0719f41e656431953"
+    },
+    "information-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/information-fill.svg",
+      "sha256": "1e8da65e4dd0527e5cc172d57d3d615b9b7435754a0043b127550b17496102b2"
+    },
+    "clockwise-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Design/clockwise-line.svg",
+      "sha256": "53bef30b6d92251af6b471c0377142cd7d1d75595b2bfba3d15178df3193b1dd"
+    },
+    "arrow-left-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-left-line.svg",
+      "sha256": "83326466c9ea5f3b18eab5051003cb5a6666c9ebc6d9e794aa49721a886987fe"
+    },
+    "earth-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Map/earth-line.svg",
+      "sha256": "3ef509fb748e9382c8f284b2898bdf5081fe8086be6abb3fe4df1cc9a9dff1fa"
+    },
+    "subtract-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/subtract-line.svg",
+      "sha256": "6a2124deaf49da77a3cf311b59923f3174ba5b15bcec4666bff9cdc298166ba1"
+    },
+    "play-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/play-line.svg",
+      "sha256": "3dcfeba5edfd64745b8357898c33094e1a6477c180c45fbda4712c58758edf9f"
+    },
+    "shut-down-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/shut-down-line.svg",
+      "sha256": "8b9785429cf04926282f55e5ad2dba64f12df861f2defa5cacb3672e6b4d247e"
+    },
+    "star-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/star-fill.svg",
+      "sha256": "f770ca9f38ea6432b5959a731025aebd4224ce802b0935d6a4eb73cfc0b4c5c1"
+    },
+    "arrow-right-s-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-right-s-fill.svg",
+      "sha256": "fa3b862baf3f6b970b1362a10667f95bf3695fab8b0e9c324342055fa7ab34a0"
+    },
+    "question-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/question-fill.svg",
+      "sha256": "210a7fef3f978f10e9f12416a55e5d052bcf66a8ffed89d3af55baa1c6f2a4df"
+    },
+    "arrow-left-s-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-left-s-line.svg",
+      "sha256": "7d0407d47b59e7d69446ef81b79e95c5d5a4085e7fa7ba30770556b67197407e"
+    },
+    "arrow-right-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-right-line.svg",
+      "sha256": "194837901f0a243ea17e2c435d12e3eebc0a9ae455749aa7ce28ff562f125f38"
+    },
+    "arrow-up-s-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-up-s-line.svg",
+      "sha256": "16a65c8f89983508e145c681e40889825d6f8f45faa30f895a3faed65cb7072e"
+    },
+    "arrow-right-double-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-right-double-line.svg",
+      "sha256": "b23573132f2dfdf66250d15e3c1302c9ff945a503c34999c974b056b1019b7a0"
+    },
+    "refresh-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/refresh-line.svg",
+      "sha256": "6768ce94b9e55f865945bf27ae1a238303f0d1d5d0f6e2bedfd4d4123a578d23"
+    },
+    "error-warning-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/error-warning-fill.svg",
+      "sha256": "3acf516eb01f7f226eba54102783cd3b081d95edfc24b11515882f1cd3cb9586"
+    },
+    "key-2-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Others/key-2-line.svg",
+      "sha256": "5d1b24c59e1c806150baebacb58f3f9d1e3bfd91b36ca12b7f5a47337424c77f"
+    },
+    "edit-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Design/edit-line.svg",
+      "sha256": "78c5dcafc5a57e67a277a466e73ecfb0779cda99becfe90bf62977471024c609"
+    },
+    "star-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/star-line.svg",
+      "sha256": "bf10036893a04a9a68d69be5c5150d856f1aab34b771f7d49a3bf9c39688c5e7"
+    },
+    "lock-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/lock-line.svg",
+      "sha256": "389ddb87b7b773e165ca30bf7ba4c9974fd56bb6c579e34b0ff6adb3d66d4a00"
+    },
+    "checkbox-circle-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/checkbox-circle-fill.svg",
+      "sha256": "b46983f9a4398491409a770ce48fc9edfc76e992e90429f1cb22ee4d7c569bc3"
+    },
+    "close-circle-fill.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/close-circle-fill.svg",
+      "sha256": "5356516e0ac5032c7f9aa496059172af150b0997b61de84fe6aabca325e9944e"
+    },
+    "close-circle-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/close-circle-line.svg",
+      "sha256": "21bdd3674c90c4ee1c1ca185b95a9e63e8fc4b63c7ef330dcf6c1b19ffdd1f5b"
+    },
+    "loader-4-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/loader-4-line.svg",
+      "sha256": "6a1f813c93cd7b7562b512800308653a9459cfeb738576de160080d042e44487"
+    },
+    "send-plane-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/send-plane-line.svg",
+      "sha256": "44c3951d3f068861606c4b01abcd69cd3a01744e9952625b674e092097d40c44"
+    },
+    "download-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/download-line.svg",
+      "sha256": "ad83ac7dc9d4c6af651a53068e928d82f9402cfd05a924742388549846032f43"
+    },
+    "stop-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Media/stop-line.svg",
+      "sha256": "da22575900a1d70bc2a57c8ddad97b672d5f30a3c42c542d17912886a6de4e6e"
+    },
+    "code-s-slash-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Development/code-s-slash-line.svg",
+      "sha256": "daa927c289019fa5352855afc6c963d485158471ef390a5c390ebfacbbddf8bf"
+    },
+    "file-text-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Document/file-text-line.svg",
+      "sha256": "203b98694bd41ccb979a4d71ba24b66a3581cb3087d5ce6973e8d203afc90dc6"
+    },
+    "checkbox-circle-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/checkbox-circle-line.svg",
+      "sha256": "565f6f88cb648bed219d97b4df058c40e7c4f22bc3b906fcfc6b4dff24ad79b4"
+    },
+    "mail-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Business/mail-line.svg",
+      "sha256": "9120f3d8f3c235a65c2002c9f5f0b1cc19d781f723680484a36970326a4fafab"
+    },
+    "search-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/search-line.svg",
+      "sha256": "e36fd9d602a25425c6c2288005ef5a413eec710f9718bd01dbfd81cb4d6b5c19"
+    },
+    "zoom-out-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/zoom-out-line.svg",
+      "sha256": "da1872991daecae6be3c21e89ce791e5cd97f67d3520c19c0eab05d75b1dad6d"
+    }
+  }
+}
