@@ -1,0 +1,164 @@
+{
+  "platform": "linux/arm/v7",
+  "input_sha256": "682f3dc02a59bbbdb7128e71f212ca0a0c2d1825efa27e35bbf1537496625766",
+  "unpacked_sha256": "13de364d6cd138c64d1d0d3218eeef6ce2f3fc39d271efe8ae7d5508a77d2590",
+  "handlers": [
+    {
+      "name": "handleSystemInfo",
+      "address": 17779368,
+      "offset": 17713832,
+      "size": 756,
+      "original_sha256": "8d6a73662849dd57d474baeb3bffc67f12e4cfaf166c2f862e3e4669d0af0a27"
+    },
+    {
+      "name": "handleCheckUpdate",
+      "address": 17798132,
+      "offset": 17732596,
+      "size": 508,
+      "original_sha256": "4266c2ce0a5a75cda11d7733bb69d46c2dfc02bbfc8376d67aeada17c814a36c"
+    },
+    {
+      "name": "handleApplyUpdate",
+      "address": 17798640,
+      "offset": 17733104,
+      "size": 244,
+      "original_sha256": "6e99bf02c234ce3061e29d0797176007a1a56bc5702ddd4b99b18cc038385d96"
+    }
+  ],
+  "assets": [
+    {
+      "name": "dist/index.html",
+      "offset": 21705280,
+      "size": 2109,
+      "sha256": "f25f7fbc5c8979fb51d95c94fc175e681523acc26299724d6b01f66a82db6f3c",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/AuthenticatedShell-Ppe75yul.js",
+      "offset": 21771224,
+      "size": 8369,
+      "sha256": "77f718e1830ef5a31b4a0b51173f1226e7308a75e7eb72c72ccccdb8fd7a7afd",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/Dashboard-BJIjfzYR.js",
+      "offset": 21779600,
+      "size": 8542,
+      "sha256": "bea0529260905ef9492a76f98f3a2bd8a0b705f7eb6e7b50d8b049d2cb9fc7b2",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/DebugPanel-CJsU2cXf.js",
+      "offset": 21745048,
+      "size": 5780,
+      "sha256": "95bd2be43235c66e5f83973333edd3ce65619afea214425ad36c56e15e7e88f6",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/Login-DYT30HPB.js",
+      "offset": 21734752,
+      "size": 4966,
+      "sha256": "363ea854baf91a447813f8e998bdd887948c42a59026b953b2f165587d5812c9",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/Settings-NYS93jSt.js",
+      "offset": 22037712,
+      "size": 41160,
+      "sha256": "c5ed379490bc7def9c6eed54a0611388a025d50421db5188d83a3cfee2034ddd",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/SwitchDark.vue_vue_type_script_setup_true_lang-B2vJohHI.js",
+      "offset": 21688133,
+      "size": 592,
+      "sha256": "680b8dba303e13773802f459d0bb7b265c9814e1bf46b430576f6c1d84b6502f",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/UnauthenticatedShell-bgNWSZdo.js",
+      "offset": 21692600,
+      "size": 1026,
+      "sha256": "5db39dfb4b74029ff8fba43106ce6f060b28844c87923a059b2e81fa19adcca5",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/dayjs-CEZ7Y9on.js",
+      "offset": 21820416,
+      "size": 15630,
+      "sha256": "993ac69b208b3caef277cee952f0268f3e8e9629d9f9407ba7949ebeaa4ac68c",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/echarts-BmpTRBT-.js",
+      "offset": 24486432,
+      "size": 1091833,
+      "sha256": "7d0a036c4bab8e8a40f2f893824a6fbfba4b3d9489077a9dca279dc88b3536b6",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/element-plus-DL-K_RFc.js",
+      "offset": 23690752,
+      "size": 795675,
+      "sha256": "5310e0c431bed4508151d6afe2712b1d5d9f3536cbb9e8421ad20c9f1ac817ec",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/index-LpkynxSh.js",
+      "offset": 21836048,
+      "size": 16142,
+      "sha256": "dfedcec768f04690ecf5e69607376030507c40b789855965dcc9b0b9e68180ea",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/route-devices-uPYlkLrw.js",
+      "offset": 22514408,
+      "size": 143987,
+      "sha256": "87871c145941f575bca23a33dfbe72770acd88f5f6e0852652dceca800dffb33",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/route-logs-UqD0xcuU.js",
+      "offset": 21750832,
+      "size": 6158,
+      "sha256": "41100a9e23123ead811dfc4abae0928ae9e065c3dd43531c75130fae75a6d690",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/route-proxy-D1rZoBlj.js",
+      "offset": 21900696,
+      "size": 29909,
+      "sha256": "b2861fa500adb9ef6767effd4da634062f36777b0ed3a219cb34b4369e4957fe",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/route-sms-3G-7c3Qf.js",
+      "offset": 21930608,
+      "size": 33652,
+      "sha256": "973ddce799b62ace8c9deee2e50819f9743aae05da7dcb9167cac46788fdbf0d",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/vendor-BCSkBb3Z.js",
+      "offset": 22837296,
+      "size": 250215,
+      "sha256": "2d98f5f25236c53c892d762bafb8f41f3671cf749275ca59cccfc318d3da11b6",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/vicons-DR2NoM2D.js",
+      "offset": 21964264,
+      "size": 35666,
+      "sha256": "5e024b14699193689e113d968fbb51e885c37919180b6febe7ed4be64ad6b469",
+      "hash_offsets": []
+    },
+    {
+      "name": "dist/assets/vue-core-MrmoKyQJ.js",
+      "offset": 21870968,
+      "size": 29727,
+      "sha256": "7a64d02a3309d865a34921602f73648e0d3131266a8e4b4ddce48e492edd70db",
+      "hash_offsets": []
+    }
+  ],
+  "abort_with_status": 6514188
+}

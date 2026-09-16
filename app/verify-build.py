@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Read-only validation of the prepared Linux amd64 Docker build context."""
+"""Read-only validation of the prepared multi-architecture Docker build context."""
+import argparse
 import ast
 import fnmatch
 import hashlib
@@ -10,7 +11,7 @@ import shlex
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def verify(root=ROOT):
+def verify(root=ROOT, arch="all"):
     errors = []
     checked = set()
     def require(name):
@@ -47,11 +48,11 @@ def verify(root=ROOT):
     dockerfile = root / 'Dockerfile.vohivex'
     if dockerfile.is_file():
         for line in dockerfile.read_text().splitlines():
-            if not line.startswith('COPY '):
+            if not line.startswith('COPY ') or '--from=' in line:
                 continue
             for source in shlex.split(line)[1:-1]:
                 path = root / source
-                files = sorted(p for p in path.rglob('*') if p.is_file()) if path.is_dir() else [path]
+                files = sorted(root.glob(source)) if '*' in source else sorted(p for p in path.rglob('*') if p.is_file()) if path.is_dir() else [path]
                 if not files:
                     errors.append(f'Empty Docker COPY source: {source}')
                 for path in files:
@@ -62,26 +63,36 @@ def verify(root=ROOT):
     for name in ('app/scheduler/assets/index.html', 'app/scheduler/assets/build-info.json',
                  'app/scheduler/assets/api/docs/index.html'):
         require(name)
-    reports = [('release/patch-result.json', 'release/vohive-dji-amd64', 'patched_sha256'),
-               ('app/proxy/vendor/manifest.json', 'app/proxy/vendor/mihomo-linux-amd64-compatible', None)]
-    for report_name, binary_name, key in reports:
-        report_path, binary_path = require(report_name), require(binary_name)
-        if not report_path or not binary_path:
+    architectures = ('amd64', 'arm64', 'armv7') if arch == 'all' else (arch,)
+    vendor = json.loads((root / 'app/proxy/vendor/manifest.json').read_text())
+    for target in architectures:
+        report_name = 'patch-result.json' if target == 'amd64' else f'patch-result-{target}.json'
+        report_path = require('release/' + report_name)
+        if not report_path:
             continue
         report = json.loads(report_path.read_text())
-        expected = report[key] if key else next(b['sha256'] for b in report['binaries'] if b['arch']=='linux-amd64-compatible')
-        data = binary_path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != expected:
-            errors.append(f'Binary checksum mismatch: {binary_name}')
-        if data[:5] != b'\x7fELF\x02' or int.from_bytes(data[18:20], 'little') != 62:
-            errors.append(f'Not a Linux amd64 ELF binary: {binary_name}')
+        proxy_arch = 'linux-amd64-compatible' if target == 'amd64' else 'linux-' + target
+        proxy = next(b for b in vendor['binaries'] if b['arch'] == proxy_arch)
+        elf_class, machine = {'amd64': (2, 62), 'arm64': (2, 183), 'armv7': (1, 40)}[target]
+        for binary_name, expected in [(f'release/vohive-dji-{target}', report['patched_sha256']),
+                                       (f'app/proxy/vendor/mihomo-{proxy_arch}', proxy['sha256'])]:
+            binary = require(binary_name)
+            if not binary:
+                continue
+            data = binary.read_bytes()
+            if hashlib.sha256(data).hexdigest() != expected:
+                errors.append(f'Binary checksum mismatch: {binary_name}')
+            if data[:4] != b'\x7fELF' or data[4] != elf_class or int.from_bytes(data[18:20], 'little') != machine:
+                errors.append(f'Wrong ELF architecture: {binary_name}')
     for name in sorted(checked):
         if name.endswith('.py'):
             ast.parse((root / name).read_text(), filename=name)
     if errors:
         raise SystemExit('\n'.join(errors))
-    print(f'Build inputs OK: {len(checked)} files; binary hashes, amd64, Docker COPY and Python syntax verified.')
+    print(f'Build inputs OK: {len(checked)} files; binary hashes, ELF architectures, Docker COPY and Python syntax verified.')
 
 
 if __name__ == '__main__':
-    verify()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--arch', choices=('all', 'amd64', 'arm64', 'armv7'), default='all')
+    verify(arch=parser.parse_args().arch)

@@ -62,22 +62,57 @@ VoHiveX 自有新增部分采用[个人非商业许可](LICENSE)。这不是 OSI
 - Telegram Bot、飞书 Bot、QQ Bot、Bark、Email、Pushplus、Webhook 消息推送，需自行配置。
 - 在运营商和设备支持的条件下进行个人 VoWiFi 测试。
 
+## Docker 镜像与默认登录
+
+镜像：`ghcr.io/nxn-max/vohivex:2.0.0`（也提供 `latest` 和 `v2.0.0`）。同一个镜像地址自动选择主机架构：
+
+| 架构 | Docker 平台 | 独立标签 |
+| --- | --- | --- |
+| AMD64 | `linux/amd64` | `2.0.0-amd64` |
+| ARM64 | `linux/arm64` | `2.0.0-arm64` |
+| ARMv7 | `linux/arm/v7` | `2.0.0-armv7` |
+
+- **默认端口：`7575`**（主机与容器均为此端口）。
+- **默认账号：`admin`**。
+- **默认密码：`admin`**。
+- 仅首次启动且配置文件不存在时生成默认账号密码。已有配置继续使用原来的用户名与密码，不会重置为默认值。首次登录后请在系统设置中修改密码。
+
 ## 部署与维护
 
-当前定制版本使用 **Linux amd64**、`Dockerfile.vohivex` 与 `docker-compose.single.yml`。不要使用原上游镜像代替 VoHiveX 定制构建。
+宿主机需要 Docker Compose，以及与其内核匹配的 `option`、`qmi_wwan` 和依赖模块。无需在宿主机安装构建依赖。
 
-1. 确认宿主机驱动、内核版本和模块接口符合要求。
-2. 按[单容器部署说明](app/README.md)在开发机准备定制程序与前端资源。
-3. 准备 `config/config.yaml`，设置独立登录密码；在 `.env` 中配置 `VOHIVE_BIND_IP` 和经核对的 `DRIVER_KERNEL`。
-4. 在已安装 Docker 的主机上构建并启动：
+1. 下载仓库中的 `docker-compose.yml` 和 `.env.example`，放在同一目录。
+2. 将 `.env.example` 复制为 `.env`；在部署主机执行 `uname -r`，将结果填写到 `DRIVER_KERNEL`。
+3. 默认 `VOHIVE_BIND_IP=127.0.0.1`。需要局域网访问时，在 `.env` 中设置主机的局域网地址。
+4. 拉取镜像并启动：
 
 ```sh
-docker compose -f docker-compose.single.yml up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-浏览器访问 `http://<主机地址>:7575`。默认绑定 `127.0.0.1`；需要局域网访问时，将 `VOHIVE_BIND_IP` 设置为主机的局域网地址。
+访问 `http://<主机地址>:7575`。配置、设备、短信、任务及代理数据保存在 `config`、`data`、`logs`、`driver-state` 中。升级前停止容器并备份这些目录、`.env` 和部署配置，然后再次拉取镜像并启动。
 
-升级前停止容器并备份，保留 `.env`、`config`、`data`、`logs` 与 `driver-state`。本定制版本基于校验过的固定版本发布二进制，不应直接对其他版本套用补丁。
+容器内置网页与定时任务网关监听 `7575`，核心服务仅监听回环地址 `127.0.0.1:7576`。升级旧配置时，只迁移核心监听端口，保留账号密码、设备及其他设置。请同步将旧部署的端口映射和健康检查改为容器端口 `7575`。
+
+### GitHub 自动构建
+
+推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.0`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。工作流使用 GitHub 提供的临时 `GITHUB_TOKEN`，无需另外填写 Docker Hub 密码。
+
+ARM 镜像会进行 QEMU 启动测试；硬件驱动、USB 接口与运营商功能仍需在对应设备上验证。
+
+### 从源码构建
+
+在已有 Python 3、Node.js/npm、UPX 和 Docker Buildx 的构建机运行：
+
+```sh
+python3 app/prepare-build.py
+# 本机架构镜像：
+docker build -t vohivex:2.0.0 .
+# 多架构构建由仓库内 GitHub Actions 自动完成。
+```
+
+构建脚本只下载固定版本的上游程序与 Mihomo，并校验 SHA256；不下载用户配置或订阅。
 
 - [驱动、部署与撤销说明](app/README.md)
 - [定时短信说明](app/scheduler/README.md)

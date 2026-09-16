@@ -1,6 +1,6 @@
 # 构建与部署
 
-以下命令从项目根目录执行。Compose 项目标识为 `vohivex`（Compose 要求小写），容器名称为 `VoHiveX`。目标平台为 Linux amd64，使用 `Dockerfile.vohivex` 和 `docker-compose.single.yml`。
+以下命令从项目根目录执行。Compose 项目标识为 `vohivex`（Compose 要求小写），容器名称为 `VoHiveX`。目标平台为 Linux AMD64、ARM64、ARMv7，使用 `Dockerfile.vohivex` 和 `docker-compose.single.yml`。
 
 ## 环境要求
 
@@ -11,31 +11,31 @@
 
 ## 构建
 
-```sh
-npm ci --prefix app/build-tools
-node app/build-tools/node_modules/terser/bin/terser app/frontend/Settings.js --module --compress --mangle -o app/frontend/Settings.min.js
-python3 app/scheduler/build-assets.py
-```
+镜像由 GitHub Actions 按 `linux/amd64`、`linux/arm64`、`linux/arm/v7` 分别构建，运行启动测试后发布到 `ghcr.io/nxn-max/vohivex`。拉取 `2.0.0` 或 `latest` 时会自动选择架构。
 
-完整部署包的程序文件位于 `release/`。从 Git 获取的源码不包含生成文件，首次构建应先执行 `python3 app/prepare-build.py`。需要单独重建补丁时，准备上游原始文件并执行：
+从源码首次构建时，在构建机准备 Python 3、Node.js/npm 和 UPX，然后运行：
 
 ```sh
-python3 app/patch-release.py --original /path/to/original-linux-amd64
+python3 app/prepare-build.py
+python3 app/verify-build.py
+docker build -f Dockerfile.vohivex -t vohivex:2.0.0 .
 ```
 
-`patch-release.py` 仅适用于 `patch-manifest.json` 指定且 SHA256 校验通过的上游二进制。不要对其他版本套用偏移补丁。修改前端后更新 `build-assets.py` 中的资源版本，重新生成资源。
+可用 `--arch amd64`、`--arch arm64` 或 `--arch armv7` 仅准备所需架构；共享前端始终从经过校验的 AMD64 程序提取。三种架构使用独立的版本锁定清单与 SHA256，不对其他上游版本套用偏移补丁。`patch-release.py --arch <架构> --original /path/to/original` 可单独重建对应补丁。
 
 ## 配置与启动
 
-1. 准备 `config/config.yaml`，设置独立的登录密码；首次使用可将设备列表设为 `devices: []`。
-2. 在 `.env` 中设置 `VOHIVE_BIND_IP` 和 `DRIVER_KERNEL`。后者必须与宿主机 `uname -r` 一致，内核升级后需重新检查驱动兼容性。
-3. 构建并启动容器：
+1. 复制 `.env.example` 为 `.env`，设置 `VOHIVE_BIND_IP` 和与部署主机 `uname -r` 一致的 `DRIVER_KERNEL`。
+2. 执行：
 
 ```sh
-docker compose -f docker-compose.single.yml up -d --build
+docker compose -f docker-compose.single.yml pull
+docker compose -f docker-compose.single.yml up -d
 ```
 
-浏览器访问 `http://<主机地址>:7575`。默认只绑定 `127.0.0.1`；容器内网关使用 `7576`，转发到原服务 `7575`。在设备管理中添加已发现的模块。
+默认网页端口为 `7575`，默认账号和密码均为 `admin`。首次启动会创建 `config/config.yaml`；已有账号、密码、设备和代理配置保留。旧配置的 `server.port` 自动迁移为 `127.0.0.1:7576`，只供容器内网关访问；对外端口和健康检查均使用 `7575`。
+
+默认只绑定主机 `127.0.0.1`；局域网访问应在 `.env` 中配置主机的局域网地址。内核升级后重新核对驱动兼容性并更新 `.env`。
 
 ## 运行检查
 
@@ -57,7 +57,7 @@ python3 app/package-single.py
 
 发布包输出到 `dist/`，可用 `--output-dir /path/to/output` 指定其他目录：
 
-- `VoHiveX-deploy.zip`：包含生成的前端、Linux amd64 程序、Mihomo 与 Docker 构建输入，可直接构建镜像。
+- `VoHiveX-deploy.zip`：包含生成的前端、三种架构的 Linux 程序、Mihomo 与 Docker 构建输入，可直接构建镜像。
 - `VoHiveX-single.zip`：在部署包基础上包含前端构建脚本、字体、图标、文档和截图；解压后可重新构建前端和再次打包。
 
 两种包均保留 `Dockerfile`、`Dockerfile.vohivex`、`docker-compose.yml` 和 `docker-compose.single.yml`，附带 `SHA256SUMS`。不包含用户配置、短信数据、日志、订阅、依赖缓存或开发归档。项目目录名称可自行更改。
@@ -66,7 +66,7 @@ python3 app/package-single.py
 python3 app/verify-build.py
 ```
 
-此命令检查本地镜像输入和二进制校验值，不代替实际的 Docker 构建。从 Git 拉取的源码不包含生成的二进制与前端资源。可在具备 Python 3、Node.js/npm、UPX 的构建机执行 `python3 app/prepare-build.py`：脚本下载固定版本上游文件并验证 SHA256，生成定制二进制和前端，准备 Mihomo。脚本不会安装系统包。GitHub Actions 在独立 CI 环境完成这些步骤并验证镜像构建，不自动推送镜像到外部仓库。
+此命令检查本地镜像输入和二进制校验值，不代替实际的 Docker 构建。从 Git 拉取的源码不包含生成的二进制与前端资源。可在具备 Python 3、Node.js/npm、UPX 的构建机执行 `python3 app/prepare-build.py`：脚本下载固定版本上游文件并验证 SHA256，生成定制二进制和前端，准备 Mihomo。脚本不会安装系统包。GitHub Actions 在独立 CI 环境完成这些步骤、逐架构启动测试并发布到 GitHub Container Registry；PR 不发布镜像。
 
 ## 停止与驱动撤销
 
