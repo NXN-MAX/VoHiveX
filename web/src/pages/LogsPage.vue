@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { message } from 'antdv-next'
 import PageHeader from '@/components/PageHeader.vue'
 import { apiError, request } from '@/api/http'
+import { normalizeLogResponse } from '@/utils/logs'
 
 const lines = ref<string[]>([])
 const loading = ref(false)
@@ -36,7 +37,7 @@ async function load() {
   loading.value = true
   try {
     const data = await request<any>({ url: '/logs/history', params: { lines: 500 } })
-    lines.value = Array.isArray(data) ? data.map(String) : Array.isArray(data.lines) ? data.lines.map(String) : String(data.logs || data.content || '').split('\n')
+    lines.value = normalizeLogResponse(data)
     await scrollToEnd()
   } catch (reason) {
     message.error(apiError(reason).message)

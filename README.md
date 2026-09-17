@@ -4,7 +4,7 @@
 
 **Original author:** [iniwex5](https://github.com/iniwex5) · Original project: [VoHive](https://github.com/iniwex5/vohive)
 
-**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version: 2.1.1**
+**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version: 2.1.2**
 
 VoHiveX extends VoHive with DJI first and second generation 4G modem compatibility, scheduled SMS, a built-in Mihomo proxy manager, SMS archive tools, a redesigned responsive interface, and a Go management gateway. The existing modem core, configuration, and persistent data formats remain compatible.
 
@@ -65,10 +65,10 @@ The 386 gateway must connect to a separately supplied compatible modem core on `
 
 Images:
 
-- `ghcr.io/nxn-max/vohivex:2.1.1`
-- `maxnxxn/vohivex:2.1.1`
+- `ghcr.io/nxn-max/vohivex:2.1.2`
+- `maxnxxn/vohivex:2.1.2`
 
-The multi-platform tag selects the host architecture automatically. Architecture tags are `2.1.1-amd64`, `2.1.1-arm64`, `2.1.1-aarch64`, and `2.1.1-armv7`.
+The multi-platform tag selects the host architecture automatically. Architecture tags are `2.1.2-amd64`, `2.1.2-arm64`, `2.1.2-aarch64`, and `2.1.2-armv7`.
 
 Defaults:
 
@@ -168,10 +168,10 @@ Build a local Docker image after preparing the pinned modem-core and Mihomo inpu
 
 ```sh
 python3 app/prepare-build.py
-docker build -t vohivex:2.1.1 .
+docker build -t vohivex:2.1.2 .
 ```
 
-GitHub Actions tests the Go code, cross-compiles five gateway downloads, builds and smoke-tests the amd64, arm64, and armv7 images, publishes the multi-platform GHCR and Docker Hub tags, generates SHA-256 checksums, and creates a GitHub Release for a matching `v2.1.1` tag.
+GitHub Actions tests the Go code, cross-compiles five gateway downloads, builds and smoke-tests the amd64, arm64, and armv7 images, publishes the multi-platform GHCR and Docker Hub tags, generates SHA-256 checksums, and creates a GitHub Release for a matching `v2.1.2` tag.
 
 Additional documentation:
 

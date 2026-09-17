@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "2.1.1"
+const version = "2.1.2"
 
 type application struct {
 	configPath string

@@ -54,7 +54,7 @@ const newSmsMetrics = computed(() => measureSms(newSmsForm.value.message))
 const gsm7Basic = new Set(Array.from("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"))
 const gsm7Extended = new Set(Array.from('^{}\\[~]|€'))
 
-function contactKey(row: SmsContact) { return `${row.imsi || ''}|${row.peer}` }
+function contactKey(row: SmsContact) { return `${row.device_id || ''}|${row.imsi || ''}|${row.peer}` }
 function displayTime(value: unknown) {
   if (!value) return ''
   const number = Number(value)

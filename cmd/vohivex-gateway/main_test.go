@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,4 +151,65 @@ func TestInMemoryStoresDoNotRequireFilesystemPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	archive.Close()
+}
+
+func TestSMSContactsAllFansOutByDevice(t *testing.T) {
+	requested := map[string]bool{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Errorf("authorization header was not forwarded: %q", r.Header.Get("Authorization"))
+			writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+			return
+		}
+		switch r.URL.Path {
+		case "/api/devices":
+			writeJSON(w, http.StatusOK, map[string]any{"devices": []map[string]any{
+				{"id": "device-1", "imsi": "001010123456789"},
+				{"id": "device-2", "imsi": "001010987654321"},
+			}})
+		case "/api/sms/contacts":
+			deviceID := r.URL.Query().Get("device_id")
+			if deviceID == "all" || deviceID == "" {
+				t.Errorf("all-devices request was forwarded without expansion: %q", r.URL.RawQuery)
+				writeJSON(w, http.StatusBadRequest, map[string]any{"error": "device_id was not expanded"})
+				return
+			}
+			requested[deviceID] = true
+			writeJSON(w, http.StatusOK, []map[string]any{{
+				"peer":           "+12025550123",
+				"last_timestamp": "2026-09-18T12:00:00Z",
+			}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	archive, err := newSMSArchive(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	app := &application{upstream: strings.TrimPrefix(upstream.URL, "http://"), archive: archive}
+	request := httptest.NewRequest(http.MethodGet, "/api/sms/contacts?device_id=all&limit=20", nil)
+	request.Header.Set("Authorization", "Bearer test-token")
+	response := httptest.NewRecorder()
+	app.routes().ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("unexpected response %d: %s", response.Code, response.Body.String())
+	}
+	var contacts []map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &contacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(contacts) != 2 || !requested["device-1"] || !requested["device-2"] {
+		t.Fatalf("unexpected fan-out: requests=%v contacts=%#v", requested, contacts)
+	}
+	seen := map[string]string{}
+	for _, contact := range contacts {
+		seen[contact["device_id"].(string)] = contact["imsi"].(string)
+	}
+	if seen["device-1"] != "001010123456789" || seen["device-2"] != "001010987654321" {
+		t.Fatalf("device metadata was not attached: %#v", contacts)
+	}
 }

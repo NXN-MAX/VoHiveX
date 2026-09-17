@@ -446,10 +446,44 @@ func (app *application) smsHistoryAPI(w http.ResponseWriter, r *http.Request, re
 		return
 	}
 	if r.Method == http.MethodGet && path == "/api/sms/contacts" {
-		code, value, err := app.upstreamJSON(r, http.MethodGet, r.URL.RequestURI(), nil, 25*time.Second)
-		if err != nil || code != http.StatusOK {
-			writeJSON(w, code, value)
-			return
+		live := []map[string]any{}
+		requestedDevice := strings.TrimSpace(query.Get("device_id"))
+		if requestedDevice == "all" {
+			for _, device := range deviceRows(deviceData) {
+				deviceID := strings.TrimSpace(fmt.Sprint(device["id"]))
+				if deviceID == "" || deviceID == "<nil>" {
+					continue
+				}
+				params := r.URL.Query()
+				params.Set("device_id", deviceID)
+				if imsi := strings.TrimSpace(fmt.Sprint(device["imsi"])); imsi != "" && imsi != "<nil>" {
+					params.Set("imsi", imsi)
+				} else {
+					params.Del("imsi")
+				}
+				code, value, fetchErr := app.upstreamJSON(r, http.MethodGet, path+"?"+params.Encode(), nil, 25*time.Second)
+				if fetchErr != nil || code != http.StatusOK {
+					continue
+				}
+				for _, row := range proxyRowsAsMaps(value) {
+					if strings.TrimSpace(fmt.Sprint(row["device_id"])) == "" || fmt.Sprint(row["device_id"]) == "<nil>" {
+						row["device_id"] = deviceID
+					}
+					if strings.TrimSpace(fmt.Sprint(row["imsi"])) == "" || fmt.Sprint(row["imsi"]) == "<nil>" {
+						if imsi := strings.TrimSpace(fmt.Sprint(device["imsi"])); imsi != "" && imsi != "<nil>" {
+							row["imsi"] = imsi
+						}
+					}
+					live = append(live, row)
+				}
+			}
+		} else {
+			code, value, fetchErr := app.upstreamJSON(r, http.MethodGet, r.URL.RequestURI(), nil, 25*time.Second)
+			if fetchErr != nil || code != http.StatusOK {
+				writeJSON(w, code, value)
+				return
+			}
+			live = proxyRowsAsMaps(value)
 		}
 		archive, err := app.archive.Contacts(query.Get("device_id"))
 		if err != nil {
@@ -457,8 +491,8 @@ func (app *application) smsHistoryAPI(w http.ResponseWriter, r *http.Request, re
 			return
 		}
 		merged := map[string]map[string]any{}
-		for _, row := range append(proxyRowsAsMaps(value), archive...) {
-			key := fmt.Sprint(row["imsi"]) + "\x00" + fmt.Sprint(row["peer"])
+		for _, row := range append(live, archive...) {
+			key := fmt.Sprint(row["device_id"]) + "\x00" + fmt.Sprint(row["imsi"]) + "\x00" + fmt.Sprint(row["peer"])
 			old := merged[key]
 			if old == nil || timestampSortValue(row["last_timestamp"]) >= timestampSortValue(old["last_timestamp"]) {
 				merged[key] = row

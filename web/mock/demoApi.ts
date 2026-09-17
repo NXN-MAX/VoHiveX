@@ -37,7 +37,7 @@ function body(request: IncomingMessage) { return new Promise<any>((resolve) => {
 export function demoApi(): Plugin {
   return { name: 'vohivex-local-demo-api', configureServer(server) {
     server.middlewares.use(async (request, response, next) => {
-      if (request.url?.startsWith('/healthz')) return json(response, 200, { status: 'ok', version: '2.1.1', uptime_seconds: 3600 })
+      if (request.url?.startsWith('/healthz')) return json(response, 200, { status: 'ok', version: '2.1.2', uptime_seconds: 3600 })
       if (!request.url?.startsWith('/api/')) return next()
       const url = new URL(request.url, 'http://demo.local'); const path = url.pathname; const method = request.method || 'GET'
       if (path === '/api/auth/login') return json(response, 200, { token: 'vohivex-local-demo-token' })
@@ -82,7 +82,9 @@ export function demoApi(): Plugin {
       if (path === '/api/settings/username') return json(response, 200, method === 'GET' ? { username: 'admin' } : { ok: true })
       if (path === '/api/settings/system') return json(response, 200, { system_time: now(), build_time: new Date().toISOString(), driver_version: 'kernel built-in · demo', proxy_version: 'Mihomo v1.19.31', config_path: '/opt/vohivex/config/config.yaml' })
       if (path === '/api/settings/notifications') return json(response, 200, method === 'GET' ? { telegram: { enabled: false }, feishu: { enabled: false }, qq: { enabled: false }, bark: { enabled: false, urls: [] }, email: { enabled: false }, pushplus: { enabled: false }, webhook: { enabled: false, urls: [] } } : { applied: true })
-      if (path === '/api/logs/history') return json(response, 200, { lines: Array.from({ length: 80 }, (_, index) => `${new Date(Date.now() - (80 - index) * 1000).toISOString()} INFO demo/device-${index % 3} ${index % 5 === 0 ? 'A deliberately long fictional log line used to verify automatic wrapping across the available content width.' : 'health check passed'}`) })
+      if (path === '/api/logs/history') return json(response, 200, { lines: Array.from({ length: 80 }, (_, index) => index % 2
+        ? `${new Date(Date.now() - (80 - index) * 1000).toISOString()} INFO demo/device-${index % 3} health check passed`
+        : { timestamp: new Date(Date.now() - (80 - index) * 1000).toISOString(), level: index % 6 ? 'info' : 'warn', device_id: `demo/device-${index % 3}`, message: index % 5 === 0 ? 'A deliberately long fictional log line used to verify automatic wrapping across the available content width.' : 'structured health check passed' }) })
       if (method !== 'GET') return json(response, 200, { ok: true, inserted: 3, skipped: 0 })
       return json(response, 200, {})
     })
