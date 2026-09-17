@@ -6,7 +6,7 @@ import { apiError, request } from '@/api/http'
 import { normalizeLogResponse } from '@/utils/logs'
 
 const lines = ref<string[]>([])
-const loading = ref(false)
+const initialLoading = ref(true)
 const paused = ref(false)
 const wrap = ref(localStorage.getItem('vohivex:logs-wrap') !== '0')
 const tail = ref(localStorage.getItem('vohivex:logs-tail') !== '0')
@@ -14,6 +14,7 @@ const query = ref('')
 const level = ref('all')
 const consoleEl = ref<HTMLDivElement>()
 let timer = 0
+let requestInFlight = false
 const parsedLines = computed(() => lines.value.map((line) => parseLine(line)).filter((line) => {
   const levelMatch = level.value === 'all' || line.level.toLowerCase() === level.value
   const queryMatch = !query.value || line.raw.toLowerCase().includes(query.value.toLowerCase())
@@ -21,9 +22,16 @@ const parsedLines = computed(() => lines.value.map((line) => parseLine(line)).fi
 }))
 
 function parseLine(line: string) {
-  const match = line.match(/^(\S+)\s+(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\s+(\S+)\s*(.*)$/i)
+  const match = line.match(/^(.*?)\s+(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\s+(\S+)\s*(.*)$/i)
   if (!match) return { raw: line, time: '', level: '', device: '', text: line }
-  return { raw: line, time: match[1], level: match[2].toUpperCase(), device: match[3], text: match[4] }
+  return { raw: line, time: displayLogTime(match[1]), level: match[2].toUpperCase(), device: match[3], text: match[4] }
+}
+
+function displayLogTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.replace('T', ' ')
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 async function scrollToEnd() {
@@ -33,16 +41,21 @@ async function scrollToEnd() {
 }
 
 async function load() {
-  if (paused.value) return
-  loading.value = true
+  if (paused.value || requestInFlight) return
+  requestInFlight = true
   try {
     const data = await request<any>({ url: '/logs/history', params: { lines: 500 } })
-    lines.value = normalizeLogResponse(data)
-    await scrollToEnd()
+    const nextLines = normalizeLogResponse(data)
+    const changed = nextLines.length !== lines.value.length || nextLines.some((line, index) => line !== lines.value[index])
+    if (changed) {
+      lines.value = nextLines
+      await scrollToEnd()
+    }
   } catch (reason) {
     message.error(apiError(reason).message)
   } finally {
-    loading.value = false
+    initialLoading.value = false
+    requestInFlight = false
   }
 }
 
@@ -86,7 +99,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
         <label><input v-model="wrap" type="checkbox" @change="persistWrap" />自动换行</label>
       </div>
     </section>
-    <a-spin :spinning="loading">
+    <a-spin :spinning="initialLoading">
       <div ref="consoleEl" class="log-console" :class="{ wrap }">
         <div v-if="!parsedLines.length" class="log-empty">暂无日志</div>
         <template v-else><div v-for="(line,index) in parsedLines" :key="`${index}-${line.raw}`" class="log-line">
@@ -101,7 +114,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
 </template>
 
 <style scoped>
-.log-toggle{height:36px!important;padding:0 18px!important;border:0!important;border-radius:999px!important;box-shadow:none!important;font-weight:750}.log-toggle.pause{background:#fff0dc!important;color:#9a4a00!important}.log-toggle.pause:hover{background:#ffe2b9!important;color:#7b3b00!important}.log-toggle.resume{background:var(--vx-accent)!important;color:var(--vx-accent-ink)!important}.log-toggle.resume:hover{background:var(--vx-accent-hover)!important}.status-dot.paused{background:#f59e0b}.log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}.log-filter-controls{display:flex;min-width:360px;flex:1 1 360px;align-items:center;gap:16px}.log-filter-controls :deep(.ant-select){width:126px;flex:none}.log-filter-controls :deep(.ant-input-affix-wrapper){max-width:360px;flex:1;background:var(--vx-canvas)!important}.log-meta{display:flex;flex:none;align-items:center;justify-content:flex-end;gap:16px;color:var(--vx-muted);font-size:12px}.connection-state{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.log-meta label{display:flex;align-items:center;gap:4px;color:var(--vx-ink);font-weight:650;white-space:nowrap;cursor:pointer}.log-meta input{width:15px;height:15px;margin:0;accent-color:#50a41d}.log-console{height:calc(100vh - 350px);min-height:440px;margin:0;overflow:auto;padding:18px;border-radius:20px;background:#111827!important;color:#e5e7eb!important;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;caret-color:#9fe870}.log-line{display:grid;min-width:max-content;grid-template-columns:24ch 7ch 18ch minmax(max-content,1fr);gap:10px;white-space:pre}.log-time{color:#93c5fd}.log-level{font-weight:800}.level-trace,.level-debug{color:#c4b5fd}.level-info{color:#9fe870}.level-warn,.level-warning{color:#fbbf24}.level-error,.level-fatal{color:#fb7185}.log-device{color:#67e8f9}.log-message{color:#e5e7eb}.log-console.wrap .log-line{min-width:0;grid-template-columns:24ch 7ch minmax(110px,18ch) minmax(0,1fr);white-space:normal}.log-console.wrap .log-message{white-space:pre-wrap;overflow-wrap:anywhere}.log-empty{color:#9ca3af}
+.log-toggle{height:36px!important;padding:0 18px!important;border:0!important;border-radius:999px!important;box-shadow:none!important;font-weight:750}.log-toggle.pause{background:#fff0dc!important;color:#9a4a00!important}.log-toggle.pause:hover{background:#ffe2b9!important;color:#7b3b00!important}.log-toggle.resume{background:var(--vx-accent)!important;color:var(--vx-accent-ink)!important}.log-toggle.resume:hover{background:var(--vx-accent-hover)!important}.status-dot.paused{background:#f59e0b}.log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}.log-filter-controls{display:flex;min-width:360px;flex:1 1 360px;align-items:center;gap:16px}.log-filter-controls :deep(.ant-select){width:126px;flex:none}.log-filter-controls :deep(.ant-input-affix-wrapper){max-width:360px;flex:1;background:var(--vx-canvas)!important}.log-meta{display:flex;flex:none;align-items:center;justify-content:flex-end;gap:16px;color:var(--vx-muted);font-size:12px}.connection-state{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}.log-meta label{display:flex;align-items:center;gap:4px;color:var(--vx-ink);font-weight:650;white-space:nowrap;cursor:pointer}.log-meta input{width:15px;height:15px;margin:0;accent-color:#50a41d}.log-console{height:calc(100vh - 350px);min-height:440px;margin:0;overflow:auto;padding:18px;border-radius:20px;background:#111827!important;color:#e5e7eb!important;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;caret-color:#9fe870}.log-line{display:grid;min-width:max-content;grid-template-columns:max-content 5.5ch max-content minmax(max-content,1fr);column-gap:8px;white-space:pre}.log-time,.log-level,.log-device{white-space:nowrap}.log-time{color:#93c5fd}.log-level{font-weight:800}.level-trace,.level-debug{color:#c4b5fd}.level-info{color:#9fe870}.level-warn,.level-warning{color:#fbbf24}.level-error,.level-fatal{color:#fb7185}.log-device{color:#67e8f9}.log-message{color:#e5e7eb}.log-console.wrap .log-line{min-width:0;grid-template-columns:max-content 5.5ch max-content minmax(0,1fr);white-space:normal}.log-console.wrap .log-message{white-space:pre-wrap;overflow-wrap:anywhere}.log-empty{color:#9ca3af}
 .dark .log-toggle.pause{background:#4a2b12!important;color:#ffc47d!important}.dark .log-toggle.pause:hover{background:#593514!important}
-@media(max-width:760px){.log-toolbar{align-items:flex-start}.log-filter-controls{min-width:0;flex-basis:100%}.log-meta{justify-content:flex-start;flex-wrap:wrap}.log-console{height:520px}.log-console.wrap .log-line{grid-template-columns:1fr 7ch}.log-console.wrap .log-device,.log-console.wrap .log-message{grid-column:1/-1}}
+@media(max-width:760px){.log-toolbar{align-items:flex-start}.log-filter-controls{min-width:0;flex-basis:100%}.log-meta{justify-content:flex-start;flex-wrap:wrap}.log-console{height:520px}.log-console.wrap .log-line{grid-template-columns:max-content 5.5ch}.log-console.wrap .log-device,.log-console.wrap .log-message{grid-column:1/-1}}
 </style>
