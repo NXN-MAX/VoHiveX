@@ -1,4 +1,4 @@
-name: Build and Publish VoHiveX Docker Images
+name: Build and Publish VoHiveX
 
 on:
   push:
@@ -11,13 +11,59 @@ permissions:
   contents: read
 
 concurrency:
-  group: docker-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  go:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: amd64
+            goarch: amd64
+            goarm: ''
+          - name: arm64
+            goarch: arm64
+            goarm: ''
+          - name: armv7
+            goarch: arm
+            goarm: '7'
+          - name: '386'
+            goarch: '386'
+            goarm: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+      - name: Test Go gateway
+        run: go test ./...
+      - name: Build static Linux binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p artifacts
+          go build -trimpath -buildvcs=false -ldflags='-s -w' \
+            -o 'artifacts/vohivex-${{ matrix.name }}' ./cmd/vohivex-gateway
+          if [ '${{ matrix.name }}' = arm64 ]; then
+            cp artifacts/vohivex-arm64 artifacts/vohivex-aarch64
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.name }}
+          path: artifacts/vohivex-*
+          if-no-files-found: error
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       contents: read
       packages: write
@@ -39,12 +85,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install build-only UPX on the CI runner
+      - name: Install build-only UPX
         run: |
           sudo apt-get update
           sudo apt-get install -y upx-ucl
       - name: Prepare and verify pinned build inputs
-        run: python3 app/prepare-build.py --arch ${{ matrix.arch }}
+        run: python3 app/prepare-build.py --arch '${{ matrix.arch }}'
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64,arm
@@ -62,14 +108,30 @@ jobs:
           tags: vohivex:test-${{ matrix.arch }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-      - name: Test first startup and preserved credentials
+      - name: Test Go runtime and compatible configuration migration
         run: |
           docker run --rm --platform '${{ matrix.platform }}' \
-            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
-            --cap-drop ALL --cap-add DAC_OVERRIDE \
-            --entrypoint python3 \
-            -v "$PWD/app/smoke-test.py:/tmp/smoke-test.py:ro" \
-            vohivex:test-${{ matrix.arch }} /tmp/smoke-test.py
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            --entrypoint /bin/sh \
+            -e CONFIG_PATH=/tmp/config.yaml \
+            vohivex:test-${{ matrix.arch }} -ec '
+              test "$(/opt/vohivex/vohivex-gateway -version)" = 2.1.0
+              /opt/vohivex/vohivex-gateway -prepare-config
+              grep -q "127.0.0.1:7576" /tmp/config.yaml
+              grep -q "username: \"admin\"" /tmp/config.yaml
+              printf "%s\n" \
+                "server:" \
+                "  port: \"0.0.0.0:7575\"" \
+                "web:" \
+                "  username: \"kept-user\"" \
+                "  password: \"kept-secret\"" \
+                "devices: []" > /tmp/preserved.yaml
+              CONFIG_PATH=/tmp/preserved.yaml /opt/vohivex/vohivex-gateway -prepare-config
+              grep -q "127.0.0.1:7576" /tmp/preserved.yaml
+              grep -q "kept-user" /tmp/preserved.yaml
+              grep -q "kept-secret" /tmp/preserved.yaml
+              ! command -v python3
+            '
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -88,7 +150,7 @@ jobs:
 
   publish:
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: docker
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,7 +163,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish all three architectures together
+      - name: Publish the tested image index
         shell: bash
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -112,12 +174,11 @@ jobs:
           fi
           docker buildx imagetools create \
             -t "$IMAGE:$VERSION" -t "$IMAGE:v$VERSION" -t "$IMAGE:latest" \
-            "$IMAGE:sha-$GITHUB_SHA-amd64" \
-            "$IMAGE:sha-$GITHUB_SHA-arm64" \
-            "$IMAGE:sha-$GITHUB_SHA-armv7"
+            "$IMAGE:sha-$GITHUB_SHA-amd64" "$IMAGE:sha-$GITHUB_SHA-arm64" "$IMAGE:sha-$GITHUB_SHA-armv7"
           for ARCH in amd64 arm64 armv7; do
             docker buildx imagetools create -t "$IMAGE:$VERSION-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
           done
+          docker buildx imagetools create -t "$IMAGE:$VERSION-aarch64" "$IMAGE:sha-$GITHUB_SHA-arm64"
           docker buildx imagetools inspect "$IMAGE:$VERSION"
 
   dockerhub:
@@ -125,8 +186,6 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -135,7 +194,7 @@ jobs:
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Install registry copy tool on the CI runner
+      - name: Install registry copy tool
         run: |
           sudo apt-get update
           sudo apt-get install -y skopeo
@@ -146,19 +205,40 @@ jobs:
         run: |
           SOURCE="ghcr.io/${GITHUB_REPOSITORY,,}"
           IMAGE="docker.io/$DOCKERHUB_USERNAME/vohivex"
-          VERSION="$(python3 -c 'import json,re; v=json.load(open("versions.json"))["stable"].removeprefix("v"); assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",v); print(v)')"
+          VERSION="$(python3 -c 'import json; print(json.load(open("versions.json"))["stable"].removeprefix("v"))')"
           for ARCH in amd64 arm64 armv7; do
-            skopeo copy --all --retry-times 3 \
-              --dest-authfile "$HOME/.docker/config.json" \
-              "docker://$SOURCE:sha-$GITHUB_SHA-$ARCH" \
-              "docker://$IMAGE:sha-$GITHUB_SHA-$ARCH"
+            skopeo copy --all --retry-times 3 --dest-authfile "$HOME/.docker/config.json" \
+              "docker://$SOURCE:sha-$GITHUB_SHA-$ARCH" "docker://$IMAGE:sha-$GITHUB_SHA-$ARCH"
           done
           docker buildx imagetools create \
             -t "$IMAGE:$VERSION" -t "$IMAGE:v$VERSION" -t "$IMAGE:latest" \
-            "$IMAGE:sha-$GITHUB_SHA-amd64" \
-            "$IMAGE:sha-$GITHUB_SHA-arm64" \
-            "$IMAGE:sha-$GITHUB_SHA-armv7"
+            "$IMAGE:sha-$GITHUB_SHA-amd64" "$IMAGE:sha-$GITHUB_SHA-arm64" "$IMAGE:sha-$GITHUB_SHA-armv7"
           for ARCH in amd64 arm64 armv7; do
             docker buildx imagetools create -t "$IMAGE:$VERSION-$ARCH" "$IMAGE:sha-$GITHUB_SHA-$ARCH"
           done
-          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          docker buildx imagetools create -t "$IMAGE:$VERSION-aarch64" "$IMAGE:sha-$GITHUB_SHA-arm64"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [go, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify version and create checksums
+        shell: bash
+        run: |
+          VERSION="$(python3 -c 'import json; print(json.load(open("versions.json"))["stable"])')"
+          test "$GITHUB_REF_NAME" = "$VERSION"
+          cd release-assets
+          sha256sum vohivex-* > SHA256SUMS
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" release-assets/* --title "VoHiveX ${GITHUB_REF_NAME#v}" --notes-file RELEASE_NOTES.md

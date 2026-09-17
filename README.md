@@ -1,145 +1,190 @@
-![VoHiveX · 个人模组管理与测试平台](docs/images/vohivex-banner.png)
+![VoHiveX personal modem management and test platform](docs/images/vohivex-banner.png)
 
 # VoHiveX
 
-**原作者：[iniwex5](https://github.com/iniwex5)** · 原项目：[VoHive](https://github.com/iniwex5/vohive)
+**Original author:** [iniwex5](https://github.com/iniwex5) · Original project: [VoHive](https://github.com/iniwex5/vohive)
 
-**VoHiveX 作者：[NXN-MAX](https://github.com/NXN-MAX)** · **版本：2.0.2**
+**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version: 2.1.0**
 
-VoHiveX 基于 VoHive 扩展，保留原项目的设备、短信、eSIM 和 VoWiFi 能力，增加大疆模组适配、定时短信和 Mihomo 代理管理，并重新设计管理界面。感谢原作者提供的基础工作。
+VoHiveX extends VoHive with DJI first and second generation 4G modem compatibility, scheduled SMS, a built-in Mihomo proxy manager, SMS archive tools, a redesigned responsive interface, and a Go management gateway. The existing modem core, configuration, and persistent data formats remain compatible.
 
-## 使用范围
+## Acceptable use
 
 > [!CAUTION]
-> **强烈禁止任何商业用途。仅供个人技术研究、学习与自有设备内部测试。**
+> **Commercial use is strictly prohibited. VoHiveX is for personal research, learning, and testing on devices that you own.**
 >
-> **仅允许使用本人合法持有的个人号码。禁止接入非本人个人号码、冒用他人号码，禁止代收验证码、接码平台、批量营销、垃圾短信、电信诈骗、非法代理及任何违法违规用途。**
->
-> 请遵守所在地法律法规、运营商规定及原项目使用条款。不得将本项目用于生产基础设施。违规使用产生的责任由使用者承担。
+> Use only personal phone numbers that you legally control. Do not use VoHiveX for verification-code collection, number rental, unsolicited or bulk messaging, fraud, unlawful proxy services, or any activity that violates local law or carrier terms.
 
-VoHiveX 自有新增部分采用[个人非商业许可](LICENSE)。这不是 OSI 开源许可证；原项目、修改的上游材料和第三方组件保留其各自许可，本许可不授予它们的重新分发权。
+The original project and third-party components keep their respective licenses. VoHiveX additions use the [Personal Non-Commercial License](LICENSE), which is not an OSI-approved open-source license.
 
-## 新增与改进
+## Main features
 
-### 大疆一代 / 二代 4G 模块适配
+### DJI modem compatibility
 
-- **无需刷机、无需修改设备 USB ID。** 通过宿主机已有驱动及容器内的适配逻辑进行识别。
-- **一代：** 已针对原厂 `2ca3:4006` 增加运行时匹配，使用 `option` 提供 AT 串口、`qmi_wwan` 提供 QMI 控制接口，并完成Linux 主机实机验证。
-- **二代：** 标准 QMI / MBIM 设备沿用现有识别路径；本仓库尚无二代实机验证记录，不保证所有二代硬件及固件组合可用。若设备使用不同 ID 或接口布局，需要单独核对适配。
-- 驱动适配逻辑集成在 VoHiveX 容器中，无需另启驱动容器。依赖宿主机已经提供匹配内核版本的驱动，容器不会自行替换宿主机内核。
+- First generation DJI 4G modules using USB ID `2ca3:4006` are matched at runtime without reflashing or changing the USB ID.
+- The existing host `option` and `qmi_wwan` drivers provide the AT serial and QMI interfaces.
+- Second generation devices use the standard QMI or MBIM detection path. Hardware and firmware combinations not tested by this project may still require an additional mapping.
+- Driver adaptation runs inside the VoHiveX container. It does not replace the host kernel or install a host driver package.
 
-### 定时任务
+### Scheduled SMS
 
-- 指定日期、时、分、秒发送一次，或按天、时、分、秒设置重复间隔。
-- 选择发信设备、收信号码及短信内容；支持新增、修改、删除、开始、暂停和执行记录。
-- 显示下次执行时间，使用北京时间（UTC+8）。新建或修改后默认暂停。
-- 执行后通过已配置的消息推送渠道通知设备名称、收信号码、内容、时间和状态。
-- 支持在后端提供发送状态时继续查询并推送结果；无法确认时明确显示结果未知。**发送提交成功不等于收件人已收到。**
-- 持久化保存任务；不会集中补发错过的任务，发送失败或结果不确定时自动暂停。
+- Send once at a chosen date and time, or repeat at a day, hour, minute, and second interval.
+- Create, edit, delete, start, and pause tasks, and review execution history and the next run time.
+- Notify enabled Telegram, Feishu, QQ, Bark, Email, Pushplus, and Webhook channels after execution and after a delivery result becomes available.
+- Missed tasks are skipped after downtime. Failed or ambiguous sends are paused and are never retried automatically.
 
-### 内置 Mihomo 代理模块
+### Mihomo proxy management
 
-- 代理管理整合「订阅与节点」「VoWiFi 漫游前置代理」「本地出站代理」。
-- 支持多个订阅来源、节点链接和 Clash YAML，可折叠选择节点、更新订阅及测试延迟。
-- 支持二维码图片识别；图片只在浏览器本地处理，结束后丢弃，不上传、不缓存。
-- 「订阅节点 · 内置代理」固定存在，使用同容器 **SOCKS5 `127.0.0.1:17890`**，与 Mihomo 监听端口保持一致。
-- 可按 SIM 所属国家设置 VoWiFi 代理规则；禁用代理后，关联国家规则回退为直连。
-- VoWiFi 是否可用仍取决于运营商、号码状态及网络条件；所选代理需支持 UDP Associate。
+- Manage subscriptions and nodes, VoWiFi roaming proxies, and local outbound proxies from one module.
+- Import multiple HTTPS subscriptions, Clash YAML, and common share links; select nodes and test HTTPS latency.
+- QR images are decoded in the browser and are discarded without upload or caching.
+- The fixed `Subscription node · Built-in proxy` entry uses SOCKS5 at `127.0.0.1:17890`.
+- Disabling a proxy makes associated country rules fall back to direct access.
 
-### 界面与系统设置
+### Interface and administration
 
-- 统一浅色、深色界面，使用 Remix Icon，适配桌面和手机。
-- 仪表盘使用 SIM 卡样式展示设备、蜂窝 / WiFi Calling 状态及 IP 地址，支持 IPv6。
-- 短信中心按联系人展示会话；消息推送独立为导航模块。
-- 支持修改用户名和密码；显示系统时间、打包时间、配置文件路径、驱动与代理模块版本。
-- 保留本机 `/api/docs` 文档入口，使用本地 Swagger UI 资源。
+- Responsive light and black dark themes, Remix Icon controls, SIM-card device tiles, and IPv4/IPv6 display.
+- Conversation-based SMS center with import, export, selection, bulk state changes, and archive deduplication.
+- eSIM activation-code parsing from pasted text, clipboard images, or JPG, JPEG, PNG, and WebP files. Profile installation starts only after the user presses the download button.
+- Username and password settings, local Swagger UI at `/api/docs`, system/build/driver/proxy information, `/healthz`, and Prometheus-compatible `/metrics`.
 
-## 原有核心能力
+## Go runtime in 2.1.0
 
-- 多设备管理、网页与 Bot 收发短信。
-- eSIM / eUICC Profile 下载、切换、删除与卡策略管理（取决于设备支持）。
-- AT、USSD 终端与实时日志。
-- Telegram Bot、飞书 Bot、QQ Bot、Bark、Email、Pushplus、Webhook 消息推送，需自行配置。
-- 在运营商和设备支持的条件下进行个人 VoWiFi 测试。
+The management gateway, reverse proxy, scheduler, SMS archive, account settings, Mihomo lifecycle, health checks, and metrics are implemented in Go. The container no longer installs Python or PyYAML. Existing `config.yaml`, scheduler SQLite data, imported SMS archives, proxy subscriptions, and web assets are reused during an upgrade.
 
-## Docker 镜像与默认登录
+The bundled legacy modem core was already a Go executable but its upstream source is not present in this repository. For that reason, the full container remains available on the three architectures for which a compatible modem core exists.
 
-镜像：`ghcr.io/nxn-max/vohivex:2.0.2`；Docker Hub 同步地址：`maxnxxn/vohivex:2.0.2`（也提供 `latest` 和 `v2.0.2`）。同一个镜像地址自动选择主机架构：
+| Deliverable | amd64 | arm64 | aarch64 | armv7 | 386 |
+| --- | --- | --- | --- | --- | --- |
+| Full Docker image | Yes | Yes | Alias of arm64 | Yes | No |
+| Go gateway binary | Yes | Yes | Alias of arm64 | Yes | Yes |
 
-| 架构 | Docker 平台 | 独立标签 |
-| --- | --- | --- |
-| AMD64 | `linux/amd64` | `2.0.2-amd64` |
-| ARM64 | `linux/arm64` | `2.0.2-arm64` |
-| ARMv7 | `linux/arm/v7` | `2.0.2-armv7` |
+The 386 gateway must connect to a separately supplied compatible modem core on `127.0.0.1:7576`. This repository does not claim 386 modem-core support.
 
-- **默认端口：`7575`**（主机与容器均为此端口）。
-- **默认账号：`admin`**。
-- **默认密码：`admin`**。
-- 仅首次启动且配置文件不存在时生成默认账号密码。已有配置继续使用原来的用户名与密码，不会重置为默认值。首次登录后请在系统设置中修改密码。
+## Docker installation
 
-## 部署与维护
+Images:
 
-宿主机需要 Docker Compose，以及与其内核匹配的 `option`、`qmi_wwan` 和依赖模块。无需在宿主机安装构建依赖。
+- `ghcr.io/nxn-max/vohivex:2.1.0`
+- `maxnxxn/vohivex:2.1.0`
 
-1. 下载仓库中的 `docker-compose.yml` 和 `.env.example`，放在同一目录。
-2. 将 `.env.example` 复制为 `.env`；内核版本由容器自动识别，无需填写。
-3. 默认 `VOHIVE_BIND_IP=127.0.0.1`。需要局域网访问时，在 `.env` 中设置主机的局域网地址。
-4. 拉取镜像并启动：
+The multi-platform tag selects the host architecture automatically. Architecture tags are `2.1.0-amd64`, `2.1.0-arm64`, `2.1.0-aarch64`, and `2.1.0-armv7`.
+
+Defaults:
+
+- Web port: `7575`
+- Username: `admin`
+- Password: `admin`
+
+Default credentials are created only when no configuration exists. Upgrades keep the current username, password, devices, messages, tasks, and proxy data. Change the default password after the first login.
+
+1. Download `docker-compose.yml` and `.env.example` into one directory.
+2. Copy `.env.example` to `.env`. No kernel version setting is required.
+3. Set `VOHIVE_BIND_IP` to the NAS LAN address when other LAN devices need access. The example defaults to `127.0.0.1`.
+4. Start the service:
 
 ```sh
 docker compose pull
 docker compose up -d
 ```
 
-访问 `http://<主机地址>:7575`。配置、设备、短信、任务及代理数据保存在 `config`、`data`、`logs`、`driver-state` 中。升级前停止容器并备份这些目录、`.env` 和部署配置，然后再次拉取镜像并启动。
+Open `http://<host>:7575`. Persistent state is stored in `config`, `data`, `logs`, and `driver-state`. Back up those directories, `.env`, and the Compose file before an update.
 
-容器内置网页与定时任务网关监听 `7575`，核心服务仅监听回环地址 `127.0.0.1:7576`。升级旧配置时，只迁移核心监听端口，保留账号密码、设备及其他设置。请同步将旧部署的端口映射和健康检查改为容器端口 `7575`。
+The container detects the running host kernel automatically. It reuses loaded modules or loads `option`, `qmi_wwan`, and their dependencies from `/lib/modules/<running-kernel>`. Missing modules stop driver initialization with an error; the container does not install a kernel package or replace the host kernel.
 
-### GitHub 自动构建
+## Binary downloads
 
-推送到 `main`、推送与 `versions.json` 一致的版本标签（例如 `v2.0.2`），或手动运行 Actions，即自动构建三种架构并推送到 GitHub Container Registry。每种架构先验证默认登录、配置保留、HTTP 接口及 Mihomo 启动，全部通过后才更新统一版本标签和 `latest`。PR 只运行构建与测试，不发布镜像。GHCR 使用 GitHub 提供的临时 `GITHUB_TOKEN`。配置仓库变量 `DOCKERHUB_USERNAME` 和仓库密钥 `DOCKERHUB_TOKEN` 后，同一工作流会将通过测试的三种架构同步发布到 Docker Hub；不需要订阅 Docker Hub 自动构建服务。设置步骤见 [Docker Hub 说明](DOCKERHUB.md)。
+GitHub Releases provides the following statically linked Linux gateway binaries plus `SHA256SUMS`:
 
-ARM 镜像会进行 QEMU 启动测试；硬件驱动、USB 接口与运营商功能仍需在对应设备上验证。
+- `vohivex-amd64`
+- `vohivex-arm64`
+- `vohivex-aarch64`
+- `vohivex-armv7`
+- `vohivex-386`
 
-### 从源码构建
+Verify and install a binary, using the file for your architecture:
 
-在已有 Python 3、Node.js/npm、UPX 和 Docker Buildx 的构建机运行：
+```sh
+sha256sum -c SHA256SUMS --ignore-missing
+chmod 0755 vohivex-amd64
+./vohivex-amd64 -version
+install -m 0755 vohivex-amd64 /usr/local/bin/vohivex-gateway
+```
+
+The standalone gateway expects:
+
+- a compatible VoHive modem core at `127.0.0.1:7576`;
+- a writable configuration file and data directory;
+- the built frontend assets;
+- a Mihomo binary when managed proxy features are used.
+
+Example startup:
+
+```sh
+export CONFIG_PATH=/etc/vohivex/config.yaml
+export VOHIVEX_DATA=/var/lib/vohivex
+export SCHEDULER_ASSETS=/opt/vohivex/assets
+export MIHOMO_BINARY=/opt/vohivex/mihomo
+
+vohivex-gateway -prepare-config
+vohivex-gateway
+```
+
+The gateway listens on `0.0.0.0:7575` by default and keeps the modem core on the loopback-only port `7576`. Set `SCHEDULER_PORT`, `VOHIVE_UPSTREAM_HOST`, or `VOHIVE_UPSTREAM_PORT` only when the surrounding service layout differs.
+
+### Binary update
+
+1. Back up `config.yaml` and the complete data directory.
+2. Download the new binary and `SHA256SUMS` from the same release.
+3. Verify the checksum and version.
+4. Stop the current gateway.
+5. Atomically replace the executable and restart the service.
+6. Confirm `/healthz`, the web login, the device state, scheduled tasks, SMS history, and the managed proxy state.
+
+Do not downgrade after a release creates a newer database schema. The gateway rejects a database that is newer than the schema it understands instead of silently damaging it.
+
+## Build and release
+
+Build the gateway locally with Go 1.24 or newer:
+
+```sh
+go test ./...
+CGO_ENABLED=0 go build -trimpath -o vohivex-gateway ./cmd/vohivex-gateway
+```
+
+Build a local Docker image after preparing the pinned modem-core and Mihomo inputs:
 
 ```sh
 python3 app/prepare-build.py
-# 本机架构镜像：
-docker build -t vohivex:2.0.2 .
-# 多架构构建由仓库内 GitHub Actions 自动完成。
+docker build -t vohivex:2.1.0 .
 ```
 
-构建脚本只下载固定版本的上游程序与 Mihomo，并校验 SHA256；不下载用户配置或订阅。
+GitHub Actions tests the Go code, cross-compiles five gateway downloads, builds and smoke-tests the amd64, arm64, and armv7 images, publishes the multi-platform GHCR and Docker Hub tags, generates SHA-256 checksums, and creates a GitHub Release for a matching `v2.1.0` tag.
 
-- [驱动、部署与撤销说明](app/README.md)
-- [定时短信说明](app/scheduler/README.md)
-- [Mihomo 与订阅管理说明](app/proxy/README.md)
-- [第三方组件声明](app/proxy/THIRD-PARTY.md)
-- [品牌字体与许可](app/branding/README.md)
+Additional documentation:
 
-## 项目截图
+- [Driver and deployment notes](app/README.md)
+- [Scheduled SMS notes](app/scheduler/README.md)
+- [Mihomo and subscription notes](app/proxy/README.md)
+- [Third-party notices](app/proxy/THIRD-PARTY.md)
+- [Brand font license](app/branding/README.md)
 
-以下为本地独立演示环境的真实界面截图。**所有设备、节点、联系人、短信和任务均为虚构示例**；号码使用示例号码段，IP 使用文档示例地址，不包含真实订阅地址、密钥或个人通信内容。任务保持暂停，未发送真实短信。
+## Screenshots
 
-### 仪表盘
+All screenshots use fictional devices, nodes, phone numbers, messages, and tasks. They contain no real subscription URLs, credentials, or personal communications.
 
-![VoHiveX 仪表盘：示例设备及 SIM 卡样式状态卡片](docs/images/dashboard.png)
+### Dashboard
 
-### 代理管理
+![VoHiveX dashboard with a fictional SIM device](docs/images/dashboard.png)
 
-![VoHiveX 代理管理：虚构订阅和示例节点](docs/images/proxy.png)
+### Proxy management
 
-### 短信中心
+![VoHiveX proxy management with fictional nodes](docs/images/proxy.png)
 
-![VoHiveX 短信中心：虚构联系人和示例对话](docs/images/sms.png)
+### SMS center
 
-### 定时任务
+![VoHiveX SMS center with a fictional conversation](docs/images/sms.png)
 
-![VoHiveX 定时任务：暂停状态的虚构任务](docs/images/tasks.png)
+### Scheduled tasks
 
-## 自动识别内核
-
-容器启动时自动识别宿主机当前运行的内核，无需填写或指定内核版本。已加载的驱动直接复用；未加载时从挂载的 `/lib/modules/<当前内核版本>` 加载 `option`、`qmi_wwan` 及依赖。目录缺失或加载失败会报告错误并停止初始化，不安装驱动包、不替换内核。升级宿主机内核后，需确保宿主机提供对应驱动。
+![VoHiveX scheduled tasks with a paused fictional task](docs/images/tasks.png)

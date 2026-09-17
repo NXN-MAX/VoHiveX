@@ -24,19 +24,16 @@ def main():
     runpy.run_path(str(ROOT / 'app/verify-build.py'))['verify'](ROOT)
     base = [
         '.dockerignore', '.env.example', 'LICENSE', 'Dockerfile', 'Dockerfile.vohivex',
-        'docker-compose.yml', 'docker-compose.single.yml', 'DEPLOY.md',
+        'docker-compose.yml', 'docker-compose.single.yml', 'DEPLOY.md', 'go.mod', 'go.sum',
         'release/vohivex-amd64', 'release/patch-result.json',
-        'app/init-config.py', 'app/driver-lib.sh', 'app/driver.sh', 'app/single-start.sh', 'app/verify-build.py',
-        'app/scheduler/server.py', 'app/scheduler/engine.py', 'app/scheduler/account.py',
-        'app/scheduler/managed_proxy.py', 'app/scheduler/egress_ip.py',
-        'app/scheduler/notifications.py', 'app/scheduler/delivery.py', 'app/scheduler/sms_archive.py',
+        'app/driver-lib.sh', 'app/driver.sh', 'app/single-start.sh', 'app/verify-build.py',
         'app/proxy/vendor/mihomo-linux-amd64-compatible',
         'app/proxy/vendor/manifest.json', 'app/proxy/vendor/LICENSE.mihomo',
         'app/proxy/vendor/LICENSE.jsQR', 'app/proxy/THIRD-PARTY.md',
-    ] + [f'release/{name}' for name in ('vohivex-arm64', 'vohivex-armv7', 'patch-result-arm64.json', 'patch-result-armv7.json')] + [f'app/proxy/vendor/mihomo-linux-{arch}' for arch in ('arm64','armv7')] + files_in('app/scheduler/assets')
-    extra = ['README.md', 'DOCKERHUB.md', '.gitignore', 'app/README.md',
+    ] + [f'release/{name}' for name in ('vohivex-arm64', 'vohivex-armv7', 'patch-result-arm64.json', 'patch-result-armv7.json')] + [f'app/proxy/vendor/mihomo-linux-{arch}' for arch in ('arm64','armv7')] + files_in('app/scheduler/assets') + files_in('cmd/vohivex-gateway', {'.go'})
+    extra = ['README.md', 'RELEASE_NOTES.md', 'DOCKERHUB.md', '.gitignore', 'app/README.md',
              'app/proxy/README.md', 'app/patch-manifest.json', 'app/patch-release.py',
-             'app/package-single.py', 'app/prepare-build.py', 'app/smoke-test.py', 'app/patch-manifest-arm64.json', 'app/patch-manifest-armv7.json', 'app/build-tools/package.json', 'app/build-tools/package-lock.json']
+             'app/package-single.py', 'app/prepare-build.py', 'app/patch-manifest-arm64.json', 'app/patch-manifest-armv7.json', 'app/build-tools/package.json', 'app/build-tools/package-lock.json']
     extra += [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / 'app/scheduler').iterdir())
               if p.is_file() and p.suffix in ('.py', '.js', '.css', '.md')]
     extra += files_in('app/frontend', {'.py', '.cjs', '.js', '.css', '.json', '.svg', '.md'})

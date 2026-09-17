@@ -16,16 +16,16 @@
 
 ## 镜像与架构
 
-- Docker Hub：`maxnxxn/vohivex:2.0.2`
-- GHCR：`ghcr.io/nxn-max/vohivex:2.0.2`
-- 通用标签：`2.0.2`、`v2.0.2`、`latest`，自动匹配 AMD64、ARM64、ARMv7。
-- 独立标签：`2.0.2-amd64`、`2.0.2-arm64`、`2.0.2-armv7`。
+- Docker Hub：`maxnxxn/vohivex:2.1.0`
+- GHCR：`ghcr.io/nxn-max/vohivex:2.1.0`
+- 通用标签：`2.1.0`、`v2.1.0`、`latest`，自动匹配 AMD64、ARM64、ARMv7。
+- 独立标签：`2.1.0-amd64`、`2.1.0-arm64`、`2.1.0-aarch64`、`2.1.0-armv7`。
 
 ```sh
-docker pull maxnxxn/vohivex:2.0.2
+docker pull maxnxxn/vohivex:2.1.0
 ```
 
-从 [GitHub 仓库](https://github.com/NXN-MAX/VoHiveX) 获取 `docker-compose.yml` 与 `.env.example`。将 Compose 的 `image` 改为 `maxnxxn/vohivex:2.0.2`，复制 `.env.example` 为 `.env`，填写监听地址 `VOHIVE_BIND_IP`（内核版本自动识别，无需填写），然后执行 `docker compose pull && docker compose up -d`。
+从 [GitHub 仓库](https://github.com/NXN-MAX/VoHiveX) 获取 `docker-compose.yml` 与 `.env.example`。将 Compose 的 `image` 改为 `maxnxxn/vohivex:2.1.0`，复制 `.env.example` 为 `.env`，填写监听地址 `VOHIVE_BIND_IP`（内核版本自动识别，无需填写），然后执行 `docker compose pull && docker compose up -d`。
 
 需按 [部署说明](https://github.com/NXN-MAX/VoHiveX/blob/main/DEPLOY.md) 挂载配置、数据和设备；保留 `config`、`data`、`logs`、`driver-state`，不要将用户数据加入镜像。ARM 架构已通过模拟运行测试，USB 模组仍需实机验证。
 

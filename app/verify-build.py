@@ -23,7 +23,8 @@ def verify(root=ROOT, arch="all"):
         return path
 
     for name in ('Dockerfile', 'Dockerfile.vohivex', 'docker-compose.yml',
-                 'docker-compose.single.yml', '.dockerignore'):
+                 'docker-compose.single.yml', '.dockerignore', 'go.mod', 'go.sum',
+                 'cmd/vohivex-gateway/main.go'):
         require(name)
     for left, right in [('Dockerfile', 'Dockerfile.vohivex'),
                         ('docker-compose.yml', 'docker-compose.single.yml')]:

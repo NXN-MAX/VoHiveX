@@ -1,19 +1,19 @@
 *
 !Dockerfile
-!docker-entrypoint.sh
 !release/
 !release/vohivex-*
 !Dockerfile.vohivex
+!go.mod
+!go.sum
+!cmd/
+!cmd/vohivex-gateway/
+!cmd/vohivex-gateway/**
 !app/
 !app/driver.sh
 !app/driver-lib.sh
 !app/single-start.sh
 
 !app/scheduler/
-!app/scheduler/engine.py
-!app/scheduler/server.py
-!app/scheduler/managed_proxy.py
-!app/scheduler/egress_ip.py
 !app/proxy/
 !app/proxy/THIRD-PARTY.md
 !app/proxy/vendor/
@@ -22,10 +22,3 @@
 !app/scheduler/assets/
 !app/scheduler/assets/**
 !app/proxy/vendor/LICENSE.jsQR
-
-!app/scheduler/account.py
-!app/scheduler/notifications.py
-!app/scheduler/delivery.py
-!app/scheduler/sms_archive.py
-
-!app/init-config.py

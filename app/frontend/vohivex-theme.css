@@ -680,7 +680,9 @@ body .esim-lpa-trigger{margin-left:auto;border-radius:999px!important;white-spac
 .esim-lpa-upload .el-button{margin:0!important;border-radius:999px!important}
 .esim-lpa-field{display:grid;gap:8px;font-size:13px;font-weight:650;color:var(--vohivex-ink)}
 .esim-lpa-field .el-textarea__inner{min-height:112px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;font-size:13px;line-height:1.55}
-.esim-smdp-textarea{height:40px;min-height:40px!important;resize:none;overflow:hidden;line-height:22px}
+.esim-smdp-textarea{height:40px;min-height:40px!important;resize:none;overflow:hidden;line-height:22px;border:1px solid var(--el-border-color,#dcdfe6)!important;box-shadow:none!important}
+.esim-smdp-textarea:hover{border-color:var(--el-border-color-hover,#c0c4cc)!important}
+.esim-smdp-textarea:focus{border-color:var(--el-color-primary)!important;box-shadow:0 0 0 1px var(--el-color-primary) inset!important;outline:0}
 @media(max-width:600px){.esim-download-heading{align-items:flex-start;flex-wrap:wrap}.esim-download-title{min-height:38px}.esim-lpa-trigger{margin-left:0!important;width:100%}}
 
 /* SMS archive actions, selectors and dialogs. */

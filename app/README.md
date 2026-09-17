@@ -11,14 +11,14 @@
 
 ## 构建
 
-镜像由 GitHub Actions 按 `linux/amd64`、`linux/arm64`、`linux/arm/v7` 分别构建，运行启动测试后发布到 `ghcr.io/nxn-max/vohivex`。拉取 `2.0.2` 或 `latest` 时会自动选择架构。
+镜像由 GitHub Actions 按 `linux/amd64`、`linux/arm64`、`linux/arm/v7` 分别构建，运行启动测试后发布到 `ghcr.io/nxn-max/vohivex`。拉取 `2.1.0` 或 `latest` 时会自动选择架构。
 
-从源码首次构建时，在构建机准备 Python 3、Node.js/npm 和 UPX，然后运行：
+从源码首次构建时，在构建机准备 Go 1.24+、Python 3、Node.js/npm 和 UPX，然后运行：
 
 ```sh
 python3 app/prepare-build.py
 python3 app/verify-build.py
-docker build -f Dockerfile.vohivex -t vohivex:2.0.2 .
+docker build -f Dockerfile.vohivex -t vohivex:2.1.0 .
 ```
 
 可用 `--arch amd64`、`--arch arm64` 或 `--arch armv7` 仅准备所需架构；共享前端始终从经过校验的 AMD64 程序提取。三种架构使用独立的版本锁定清单与 SHA256，不对其他上游版本套用偏移补丁。`patch-release.py --arch <架构> --original /path/to/original` 可单独重建对应补丁。
