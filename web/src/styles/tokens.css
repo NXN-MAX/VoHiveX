@@ -1,0 +1,35 @@
+@font-face{font-family:VoHiveXDisplay;src:url('/Jost-Italic.ttf') format('truetype');font-display:swap;font-style:italic;font-weight:700 900}
+:root{
+  --vx-ink:#163300;
+  --vx-text:#242722;
+  --vx-muted:#62645f;
+  --vx-canvas:#fff;
+  --vx-panel:#edefec;
+  --vx-neutral:#f1f1ee;
+  --vx-soft:#e3f5d6;
+  --vx-line:#deded9;
+  --vx-accent:#9fe870;
+  --vx-accent-ink:#163300;
+  --vx-accent-hover:#80d94b;
+  --vx-status:#afe67f;
+  --vx-danger:#c53030;
+  --vx-danger-bg:#fff0f0;
+  --vx-shadow:0 8px 28px rgba(22,51,0,.08);
+  --vx-radius:22px;
+  --vx-control-radius:12px;
+}
+html.dark{
+  --vx-ink:#dfdfd6;
+  --vx-text:#ccccd2;
+  --vx-muted:#98989f;
+  --vx-canvas:#1b1b1f;
+  --vx-panel:#202127;
+  --vx-neutral:#25262c;
+  --vx-soft:#2f3036;
+  --vx-line:#3c3f44;
+  --vx-accent:#9fe870;
+  --vx-accent-hover:#afe67f;
+  --vx-danger:#ff7b7b;
+  --vx-danger-bg:#3b2326;
+  --vx-shadow:0 8px 28px rgba(0,0,0,.22);
+}

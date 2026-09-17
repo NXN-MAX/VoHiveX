@@ -32,7 +32,7 @@ RUN case "$TARGETARCH/$TARGETVARIANT" in \
 FROM alpine:3.20
 LABEL org.opencontainers.image.source="https://github.com/NXN-MAX/VoHiveX" \
       org.opencontainers.image.title="VoHiveX" \
-      org.opencontainers.image.version="2.1.0"
+      org.opencontainers.image.version="2.1.1"
 # Packages are installed inside this image only, never into the host system.
 RUN apk add --no-cache ca-certificates tzdata setpriv libqmi
 WORKDIR /app

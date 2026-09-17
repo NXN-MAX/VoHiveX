@@ -4,7 +4,7 @@
 
 **Original author:** [iniwex5](https://github.com/iniwex5) · Original project: [VoHive](https://github.com/iniwex5/vohive)
 
-**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version: 2.1.0**
+**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version: 2.1.1**
 
 VoHiveX extends VoHive with DJI first and second generation 4G modem compatibility, scheduled SMS, a built-in Mihomo proxy manager, SMS archive tools, a redesigned responsive interface, and a Go management gateway. The existing modem core, configuration, and persistent data formats remain compatible.
 
@@ -48,7 +48,7 @@ The original project and third-party components keep their respective licenses. 
 - eSIM activation-code parsing from pasted text, clipboard images, or JPG, JPEG, PNG, and WebP files. Profile installation starts only after the user presses the download button.
 - Username and password settings, local Swagger UI at `/api/docs`, system/build/driver/proxy information, `/healthz`, and Prometheus-compatible `/metrics`.
 
-## Go runtime in 2.1.0
+## Go runtime
 
 The management gateway, reverse proxy, scheduler, SMS archive, account settings, Mihomo lifecycle, health checks, and metrics are implemented in Go. The container no longer installs Python or PyYAML. Existing `config.yaml`, scheduler SQLite data, imported SMS archives, proxy subscriptions, and web assets are reused during an upgrade.
 
@@ -65,10 +65,10 @@ The 386 gateway must connect to a separately supplied compatible modem core on `
 
 Images:
 
-- `ghcr.io/nxn-max/vohivex:2.1.0`
-- `maxnxxn/vohivex:2.1.0`
+- `ghcr.io/nxn-max/vohivex:2.1.1`
+- `maxnxxn/vohivex:2.1.1`
 
-The multi-platform tag selects the host architecture automatically. Architecture tags are `2.1.0-amd64`, `2.1.0-arm64`, `2.1.0-aarch64`, and `2.1.0-armv7`.
+The multi-platform tag selects the host architecture automatically. Architecture tags are `2.1.1-amd64`, `2.1.1-arm64`, `2.1.1-aarch64`, and `2.1.1-armv7`.
 
 Defaults:
 
@@ -143,6 +143,18 @@ The gateway listens on `0.0.0.0:7575` by default and keeps the modem core on the
 
 Do not downgrade after a release creates a newer database schema. The gateway rejects a database that is newer than the schema it understands instead of silently damaging it.
 
+## Frontend development
+
+The management interface is a standard Vue 3 single-page application in `web/`, built with Vite, Pinia, Vue Router, TypeScript, and Antdv Next. Element Plus is no longer part of the runtime frontend.
+
+```sh
+npm ci --prefix web
+npm run typecheck --prefix web
+npm run dev --prefix web
+```
+
+The development server listens on `http://127.0.0.1:18765` and proxies `/api` to `http://127.0.0.1:7575`. A production asset bundle is assembled with `python3 app/scheduler/build-assets.py`.
+
 ## Build and release
 
 Build the gateway locally with Go 1.24 or newer:
@@ -156,10 +168,10 @@ Build a local Docker image after preparing the pinned modem-core and Mihomo inpu
 
 ```sh
 python3 app/prepare-build.py
-docker build -t vohivex:2.1.0 .
+docker build -t vohivex:2.1.1 .
 ```
 
-GitHub Actions tests the Go code, cross-compiles five gateway downloads, builds and smoke-tests the amd64, arm64, and armv7 images, publishes the multi-platform GHCR and Docker Hub tags, generates SHA-256 checksums, and creates a GitHub Release for a matching `v2.1.0` tag.
+GitHub Actions tests the Go code, cross-compiles five gateway downloads, builds and smoke-tests the amd64, arm64, and armv7 images, publishes the multi-platform GHCR and Docker Hub tags, generates SHA-256 checksums, and creates a GitHub Release for a matching `v2.1.1` tag.
 
 Additional documentation:
 

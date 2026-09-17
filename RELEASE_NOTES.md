@@ -1,22 +1,22 @@
-## VoHiveX 2.1.0
+## VoHiveX 2.1.1
 
-VoHiveX 2.1.0 replaces the Python management runtime with a statically linked Go gateway while preserving the existing web interface, configuration, scheduled tasks, imported SMS archives, proxy subscriptions, and modem core.
+VoHiveX 2.1.1 replaces the legacy patched frontend bundle with a maintainable Vue 3 application and restores the management features in a responsive interface. Existing configuration, devices, messages, scheduled tasks, proxy subscriptions, and account credentials remain compatible.
 
 ### Highlights
 
-- Reimplemented the management gateway, scheduler, proxy manager, SMS archive, account settings, health checks, and metrics in Go.
-- Added Linux binaries for amd64, arm64, aarch64, armv7, and 386, with SHA-256 checksums.
-- Kept full Docker images for amd64, arm64/aarch64, and armv7.
-- Added `/healthz` and Prometheus-compatible `/metrics` endpoints.
-- Added database schema guards to prevent unsafe downgrades.
-- Improved restart recovery: interrupted or ambiguous SMS sends are paused and never sent again automatically.
-- Preserved SMS status value `0` during archive import and retained archive deduplication.
-- Kept the built-in Mihomo proxy on the fixed SOCKS5 endpoint `127.0.0.1:17890`.
-- Added IPv4 and IPv6 egress display support.
-- Fixed the missing focus border on the SM-DP+ address field.
-- Removed Python and PyYAML from the runtime image.
-- Removed obsolete legacy installer files that used incompatible gateway arguments.
+- Rebuilt the management interface with Vue 3, Vite, Pinia, Vue Router, TypeScript, and Antdv Next.
+- Removed the obsolete minified-asset patch pipeline and now builds the runtime frontend directly from `web/`.
+- Restored device overview, traffic analysis, eSIM, AT, USSD, card policy, and device configuration views.
+- Restored subscription and node management, roaming country rules, local outbound proxies, connection state, and IPv4/IPv6 egress display.
+- Restored the three-column SMS interface with delivery state, conversation selection, bulk read/unread/delete actions, and CSV, TXT, HTML, and XML import/export.
+- Restored scheduled SMS, push-channel settings, live logs, account settings, system information, and the local Swagger UI entry.
+- Improved responsive layouts for desktop, tablet, and phone screens, including the mobile navigation header, theme switch, and backend heartbeat indicator.
+- Standardized pill controls, tab overflow menus, dropdowns, dialogs, spacing, and light/black-dark themes.
+- Added local demo data for testing device, network, proxy, SMS, task, and log states without exposing personal information.
 
-### Compatibility note
+### Compatibility
 
-The 386 download is the Go gateway binary. The bundled legacy modem core has no upstream 386 build, so a 386 host must provide a compatible core service on `127.0.0.1:7576`. Docker images include the bundled modem core on amd64, arm64/aarch64, and armv7.
+- No persistent-data or configuration migration is required from 2.1.0.
+- Full Docker images are published for amd64, arm64/aarch64, and armv7.
+- Standalone Go gateway binaries are published for amd64, arm64/aarch64, armv7, and 386 with `SHA256SUMS`.
+- The 386 gateway still requires a separately supplied compatible modem core on `127.0.0.1:7576`.

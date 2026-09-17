@@ -62,3 +62,6 @@ docs/images/*
 !docs/images/proxy.png
 !docs/images/sms.png
 !docs/images/tasks.png
+
+# TypeScript build cache
+*.tsbuildinfo

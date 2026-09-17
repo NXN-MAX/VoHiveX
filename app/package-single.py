@@ -33,10 +33,10 @@ def main():
     ] + [f'release/{name}' for name in ('vohivex-arm64', 'vohivex-armv7', 'patch-result-arm64.json', 'patch-result-armv7.json')] + [f'app/proxy/vendor/mihomo-linux-{arch}' for arch in ('arm64','armv7')] + files_in('app/scheduler/assets') + files_in('cmd/vohivex-gateway', {'.go'})
     extra = ['README.md', 'RELEASE_NOTES.md', 'DOCKERHUB.md', '.gitignore', 'app/README.md',
              'app/proxy/README.md', 'app/patch-manifest.json', 'app/patch-release.py',
-             'app/package-single.py', 'app/prepare-build.py', 'app/patch-manifest-arm64.json', 'app/patch-manifest-armv7.json', 'app/build-tools/package.json', 'app/build-tools/package-lock.json']
+             'app/package-single.py', 'app/prepare-build.py', 'app/patch-manifest-arm64.json', 'app/patch-manifest-armv7.json', 'app/legacy/upstream-settings.min.js']
     extra += [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / 'app/scheduler').iterdir())
-              if p.is_file() and p.suffix in ('.py', '.js', '.css', '.md')]
-    extra += files_in('app/frontend', {'.py', '.cjs', '.js', '.css', '.json', '.svg', '.md'})
+              if p.is_file() and p.suffix in ('.py', '.md')]
+    extra += files_in('web', {'.ts', '.vue', '.css', '.json', '.html', '.svg', '.ico', '.png', '.ttf', '.txt'})
     extra += files_in('app/branding', {'.py', '.png', '.ico', '.ttf', '.txt', '.json', '.md'})
     extra += files_in('app/docs', {'.html', '.js', '.css', '.json', '.md', '.txt', '.png', '.map'})
     extra += ['docs/images/' + name for name in ('vohivex-banner.png', 'dashboard.png', 'proxy.png', 'sms.png', 'tasks.png')]

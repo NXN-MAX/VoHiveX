@@ -13,10 +13,10 @@
 - 页面：`app/docs/index.html`。
 - Swagger UI：`app/docs/vendor/swagger-ui-5.32.15/`。
 - 资源完整性记录：同目录的 `manifest.json`。
-- 后台主题：`app/frontend/vohivex-theme.css`。
+- 后台源码与主题：`web/src/`。
 
 ```sh
 python3 app/scheduler/build-assets.py
 ```
 
-修改资源后提高构建脚本中的资源版本，重新生成前端并构建镜像。资源由本机提供，许可证、NOTICE 和完整性记录必须随资源一并打包。
+修改源码后重新生成前端并构建镜像。资源由本机提供，许可证、NOTICE 和完整性记录必须随资源一并打包。

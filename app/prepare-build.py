@@ -30,10 +30,9 @@ def main():
     parser.add_argument('--arch', choices=('all', 'amd64', 'arm64', 'armv7'), default='all')
     arch = parser.parse_args().arch
     requested = ('amd64', 'arm64', 'armv7') if arch == 'all' else (arch,)
-    # The shared frontend is extracted from the verified amd64 artifact.
+    # AMD64 stays in the prepared set because the legacy modem-core patch report is the shared verification baseline.
     prepared = tuple(dict.fromkeys(('amd64',) + requested))
     proxies = json.loads((ROOT / 'app/proxy/vendor/manifest.json').read_text())['binaries']
-    subprocess.run(['npm', 'ci', '--prefix', 'app/build-tools', '--ignore-scripts', '--no-audit', '--no-fund'], cwd=ROOT, check=True)
     for target_arch in prepared:
         name = 'patch-manifest.json' if target_arch == 'amd64' else f'patch-manifest-{target_arch}.json'
         manifest = json.loads((ROOT / 'app' / name).read_text())

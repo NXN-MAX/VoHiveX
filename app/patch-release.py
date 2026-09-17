@@ -58,7 +58,7 @@ for handler in manifest['handlers']:
     assert len(stub) <= size and (size - len(stub)) % len(padding) == 0
     data[start:start + size] = stub + padding * ((size - len(stub)) // len(padding))
 
-settings = (root / 'app/frontend/Settings.min.js').read_bytes()
+settings = (root / 'app/legacy/upstream-settings.min.js').read_bytes()
 for forbidden in ['系统信息', '检查更新', '交流群', 't.me/vohive', '/system/info', '/system/update']:
     assert forbidden.encode() not in settings
 assert b'/api/docs' in settings, 'API documentation must remain available'
