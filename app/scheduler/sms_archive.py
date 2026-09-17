@@ -6,6 +6,7 @@ an archive can never trigger a modem write or an SMS send.
 """
 from datetime import datetime, timezone
 import hashlib
+from pathlib import Path
 import sqlite3
 import threading
 
@@ -27,6 +28,8 @@ class SmsArchive:
     def __init__(self, path):
         self.path = str(path)
         self.lock = threading.RLock()
+        if self.path != ':memory:' and not self.path.startswith('file:'):
+            Path(self.path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as db:
             db.execute('''CREATE TABLE IF NOT EXISTS imported_sms (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

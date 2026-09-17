@@ -53,6 +53,7 @@ def main():
         initializer.prepare(existing)
         assert yaml.safe_load(existing.read_text()) == migrated
         env = dict(os.environ, CONFIG_PATH=str(config), SCHEDULER_DB=str(root / 'tasks.sqlite3'),
+                   SMS_ARCHIVE_DB=str(root / 'archive' / 'imported-sms.sqlite3'),
                    PROXY_DATA=str(root / 'proxy'))
         processes = []
         with (root / 'startup.log').open('w+') as log:
