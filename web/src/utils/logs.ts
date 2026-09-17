@@ -1,9 +1,16 @@
 type LogRecord = Record<string, unknown>
 
+const logFieldNames = new Set([
+  'timestamp', 'time', 'datetime', 'created_at', 'createdAt', 'ts',
+  'level', 'severity', 'log_level', 'logLevel',
+  'device_id', 'deviceId', 'device', 'source', 'module', 'component',
+  'message', 'msg', 'text', 'detail', 'event',
+])
+
 function firstText(row: LogRecord, keys: string[]) {
   for (const key of keys) {
     const value = row[key]
-    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim()
+    if (value !== undefined && value !== null && typeof value !== 'object' && String(value).trim()) return String(value).trim()
   }
   return ''
 }
@@ -34,17 +41,31 @@ export function normalizeLogEntry(value: unknown) {
   catch { return String(value) }
 }
 
-export function normalizeLogResponse(data: unknown) {
-  let rows: unknown[]
-  if (Array.isArray(data)) rows = data
-  else if (data && typeof data === 'object') {
-    const record = data as LogRecord
-    const nested = ['lines', 'logs', 'items', 'entries'].map((key) => record[key]).find(Array.isArray)
-    if (Array.isArray(nested)) rows = nested
-    else {
-      const text = firstText(record, ['content', 'text', 'message'])
-      rows = text ? text.split('\n') : [record]
+function extractLogRows(value: unknown, depth = 0): unknown[] {
+  if (depth > 6 || value === null || value === undefined) return []
+  if (Array.isArray(value)) return value.flatMap((item) => extractLogRows(item, depth + 1))
+  if (typeof value !== 'object') return String(value).split('\n')
+
+  const record = value as LogRecord
+  if (Object.entries(record).some(([key, field]) => logFieldNames.has(key) && field !== null && typeof field !== 'object')) return [record]
+
+  const preferredKeys = ['lines', 'logs', 'items', 'entries', 'history', 'data', 'result', 'content']
+  for (const key of preferredKeys) {
+    if (!(key in record)) continue
+    const rows = extractLogRows(record[key], depth + 1)
+    if (rows.length) return rows
+  }
+
+  for (const nested of Object.values(record)) {
+    if (Array.isArray(nested) || (nested && typeof nested === 'object')) {
+      const rows = extractLogRows(nested, depth + 1)
+      if (rows.length) return rows
     }
-  } else rows = String(data ?? '').split('\n')
+  }
+  return [record]
+}
+
+export function normalizeLogResponse(data: unknown) {
+  const rows = extractLogRows(data)
   return rows.map(normalizeLogEntry).filter((line) => line.length > 0)
 }

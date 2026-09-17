@@ -1,11 +1,11 @@
-## VoHiveX 2.1.2
+## VoHiveX 2.1.3
 
-VoHiveX 2.1.2 fixes live log rendering and SMS conversation refresh across all devices. Existing configuration, devices, messages, scheduled tasks, proxy subscriptions, and account credentials remain compatible.
+VoHiveX 2.1.3 completes the live log rendering fix and keeps SMS conversation refresh working across all devices. Existing configuration, devices, messages, scheduled tasks, proxy subscriptions, and account credentials remain compatible.
 
 ### Fixes
 
 - Render structured live-log records as readable timestamp, level, device, and message fields instead of `[object Object]`.
-- Keep compatibility with plain-text log records and multiple API response shapes.
+- Unwrap nested log response envelopes used by the modem core while keeping compatibility with plain-text records and direct arrays.
 - Expand the SMS `all devices` request into per-device upstream requests so the legacy modem core receives the required device and IMSI values.
 - Merge conversations with device-aware keys to avoid collisions when different devices use the same contact number.
 - Continue loading available conversations when one device is temporarily offline.
