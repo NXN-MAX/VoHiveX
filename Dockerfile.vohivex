@@ -17,14 +17,14 @@ RUN case "$TARGETARCH/$TARGETVARIANT" in \
 FROM alpine:3.20
 LABEL org.opencontainers.image.source="https://github.com/NXN-MAX/VoHiveX" \
       org.opencontainers.image.title="VoHiveX" \
-      org.opencontainers.image.version="2.0.1"
+      org.opencontainers.image.version="2.0.2"
 # Packages are installed inside this image only, never into the host system.
 RUN apk add --no-cache ca-certificates tzdata setpriv libqmi python3 py3-yaml
 WORKDIR /app
 COPY --from=binaries /out/vohive /app/vohive
 COPY --from=binaries /out/mihomo /opt/vohivex/proxy/mihomo
 COPY app/driver-lib.sh app/driver.sh app/single-start.sh app/init-config.py /opt/vohivex/
-COPY app/scheduler/engine.py app/scheduler/server.py app/scheduler/managed_proxy.py app/scheduler/egress_ip.py app/scheduler/account.py app/scheduler/notifications.py app/scheduler/delivery.py /opt/vohivex/scheduler/
+COPY app/scheduler/engine.py app/scheduler/server.py app/scheduler/managed_proxy.py app/scheduler/egress_ip.py app/scheduler/account.py app/scheduler/notifications.py app/scheduler/delivery.py app/scheduler/sms_archive.py /opt/vohivex/scheduler/
 COPY app/proxy/vendor/LICENSE.mihomo app/proxy/vendor/LICENSE.jsQR /opt/vohivex/proxy/
 COPY app/proxy/THIRD-PARTY.md /opt/vohivex/proxy/THIRD-PARTY.md
 COPY app/scheduler/assets /opt/vohivex/scheduler/assets

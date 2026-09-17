@@ -1,6 +1,6 @@
 # VoHiveX 部署
 
-支持 Linux AMD64、ARM64、ARMv7。推荐直接拉取 `ghcr.io/nxn-max/vohivex:2.0.1`；Docker 自动选择对应架构。
+支持 Linux AMD64、ARM64、ARMv7。推荐直接拉取 `ghcr.io/nxn-max/vohivex:2.0.2`；Docker 自动选择对应架构。
 
 ## 默认访问
 
@@ -32,7 +32,7 @@ docker compose up -d
 
 ## 从源码或部署包构建
 
-源码构建机需要 Python 3、Node.js/npm、UPX；运行 `python3 app/prepare-build.py` 后执行 `docker build -t vohivex:2.0.1 .`。完整部署包已包含三种架构程序与生成的前端，可直接构建，无需在部署主机安装前端依赖。
+源码构建机需要 Python 3、Node.js/npm、UPX；运行 `python3 app/prepare-build.py` 后执行 `docker build -t vohivex:2.0.2 .`。完整部署包已包含三种架构程序与生成的前端，可直接构建，无需在部署主机安装前端依赖。
 
 发布包附带 `SHA256SUMS`，解压后先执行 `sha256sum -c SHA256SUMS`。`python3 app/package-single.py` 生成 `dist/VoHiveX-deploy.zip` 与包含构建源码的 `dist/VoHiveX-single.zip`。
 

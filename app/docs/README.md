@@ -13,7 +13,7 @@
 - 页面：`app/docs/index.html`。
 - Swagger UI：`app/docs/vendor/swagger-ui-5.32.15/`。
 - 资源完整性记录：同目录的 `manifest.json`。
-- 后台主题：`app/frontend/wise-theme.css`。
+- 后台主题：`app/frontend/vohivex-theme.css`。
 
 ```sh
 python3 app/scheduler/build-assets.py

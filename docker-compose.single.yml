@@ -1,7 +1,7 @@
 name: vohivex
 services:
   vohive:
-    image: ghcr.io/nxn-max/vohivex:2.0.1
+    image: ghcr.io/nxn-max/vohivex:2.0.2
     pull_policy: always
     container_name: VoHiveX
     restart: unless-stopped

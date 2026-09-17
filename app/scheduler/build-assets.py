@@ -14,7 +14,7 @@ manifest = json.loads((root/'app/patch-manifest.json').read_text())
 report = json.loads((root/'release/patch-result.json').read_text())
 binary = (root/'release/vohivex-amd64').read_bytes()
 assert hashlib.sha256(binary).hexdigest() == report['patched_sha256']
-version = 'DJI26095'
+version = 'DJI26123'
 out = root/'app/scheduler/assets'
 if out.exists():
     shutil.rmtree(out)
@@ -28,7 +28,7 @@ for asset in manifest['assets']:
         payload = payload.replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />','<link rel="icon" type="image/x-icon" href="/assets/vohivex-favicon.ico" />\n  <link rel="apple-touch-icon" href="/assets/vohivex-icon.png" />')
         payload = re.sub(r'  <link[^>]+(?:fonts.googleapis.com|fonts.gstatic.com)[^>]*>\n', '', payload)
         payload = payload.replace('lang="en"','lang="zh-CN"')
-        payload = payload.replace('</head>', '<link rel="stylesheet" href="/assets/wise-theme-'+version+'.css">\n</head>')
+        payload = payload.replace('</head>', '<link rel="stylesheet" href="/assets/vohivex-theme-'+version+'.css">\n</head>')
     if name.endswith('.js'):
         name = re.sub(r'-[^/]{8}\.js$', '-'+version+'.js', name)
     payload = payload.replace('DJI26003',version)
@@ -145,7 +145,7 @@ for asset in manifest['assets']:
         assert payload.count(before)==1
         payload=payload.replace(before,after)
     (out/name).write_text(payload)
-for source, target in [('Tasks','ScheduledTasks'),('ManagedProxy','ManagedProxy'),('qr-import','qr-import'),('outbound-toggle','outbound-toggle'),('EgressIPs','EgressIPs')]:
+for source, target in [('Tasks','ScheduledTasks'),('ManagedProxy','ManagedProxy'),('qr-import','qr-import'),('outbound-toggle','outbound-toggle'),('EgressIPs','EgressIPs'),('SmsTransfer','SmsTransfer'),('SmsSelection','SmsSelection'),('sms-transfer-codec','sms-transfer-codec')]:
     text=(root/'app/scheduler'/(source+'.js')).read_text()
     text=re.sub(r'DJI260\d{2}',version,text)
     subprocess.run(['node',str(root/'app/build-tools/node_modules/terser/bin/terser'),'--module','--compress','--mangle','-o',str(out/'assets'/(target+'-'+version+'.js'))],input=text,text=True,check=True)
@@ -155,7 +155,7 @@ for branding_file in ['Jost-Italic.ttf','vohivex-favicon.ico','vohivex-icon.png'
     shutil.copyfile(root/'app/branding'/branding_file,out/'assets'/branding_file)
 shutil.copyfile(root/'app/branding/OFL.txt',out/'assets/Jost-OFL.txt')
 shutil.copyfile(root/'app/build-tools/node_modules/jsqr/dist/jsQR.js',out/'assets'/('jsQR-'+version+'.js'))
-shutil.copyfile(root/'app/frontend/wise-theme.css',out/'assets'/('wise-theme-'+version+'.css'))
+shutil.copyfile(root/'app/frontend/vohivex-theme.css',out/'assets'/('vohivex-theme-'+version+'.css'))
 for component in ['UsernameSettings','SystemInformation','VersionInformation']:
     text=re.sub(r'DJI260\d{2}',version,(root/'app/frontend'/(component+'.js')).read_text())
     subprocess.run(['node',str(root/'app/build-tools/node_modules/terser/bin/terser'),'--module','--compress','--mangle','-o',str(out/'assets'/(component+'-'+version+'.js'))],input=text,text=True,check=True)

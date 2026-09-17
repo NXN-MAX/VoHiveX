@@ -45,6 +45,10 @@
       "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/System/add-line.svg",
       "sha256": "b03a98dbb2f1d4c1aed7987ce4be58b6af4b4be8af47b08aadb77c4a35d6a645"
     },
+    "arrow-down-box-line.svg": {
+      "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Arrows/arrow-down-box-line.svg",
+      "sha256": "ca8b06a9d3b40284bed8724eabad587a5696ba373d13ef6ae01ae7a21ed213c7"
+    },
     "router-line.svg": {
       "url": "https://raw.githubusercontent.com/Remix-Design/RemixIcon/9fb7967c0a4c09910161192bde99efd3df09f5eb/icons/Device/router-line.svg",
       "sha256": "89c8b34109eb0f171138d64688bb6269ee22dbf86ad3e600bfcb0e65fe261a4e"

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def apply(root, out, version):
-    icons = {'sortAsc':'sort-asc','sortDesc':'sort-desc','cellular1':'signal-cellular-1-fill','cellular2':'signal-cellular-2-fill','cellular3':'signal-cellular-3-fill','cellularOff':'signal-cellular-off-line','notify':'notification-3-line','delete':'delete-bin-line','dashboard':'dashboard-line','device':'smartphone-line','global':'global-line','sms':'message-2-line','tasks':'calendar-schedule-line','logs':'file-list-3-line','settings':'settings-3-line','add':'add-line','router':'router-line','wifi':'wifi-line','user':'ghost-line','close':'close-line','fold':'menu-fold-line','unfold':'menu-unfold-line','logout':'logout-box-r-line','sun':'sun-line','moon':'moon-line','sim':'sim-card-line','terminal':'terminal-box-line','ussd':'chat-voice-line','policy':'shield-check-line'}
+    icons = {'sortAsc':'sort-asc','sortDesc':'sort-desc','cellular1':'signal-cellular-1-fill','cellular2':'signal-cellular-2-fill','cellular3':'signal-cellular-3-fill','cellularOff':'signal-cellular-off-line','notify':'notification-3-line','delete':'delete-bin-line','check':'check-line','dashboard':'dashboard-line','device':'smartphone-line','global':'global-line','sms':'message-2-line','tasks':'calendar-schedule-line','logs':'file-list-3-line','settings':'settings-3-line','add':'add-line','downloadBox':'arrow-down-box-line','router':'router-line','wifi':'wifi-line','user':'ghost-line','close':'close-line','fold':'menu-fold-line','unfold':'menu-unfold-line','logout':'logout-box-r-line','sun':'sun-line','moon':'moon-line','sim':'sim-card-line','terminal':'terminal-box-line','ussd':'chat-voice-line','policy':'shield-check-line'}
     icon_map=json.loads((root/'app/frontend/remix-map.json').read_text())
     for family in icon_map.values(): icons.update(family)
     icons["empty"]="inbox-line"
@@ -75,6 +75,18 @@ def apply(root, out, version):
             s=replace(s,bars,'e("span",{class:"sim-card-signal","aria-label":C(a.device.signal_dbm)?"蜂窝信号 "+a.device.signal_dbm+" dBm":"蜂窝信号未知"},[_(h(a.device.signal_dbm)===0?Remix.cellularOff:h(a.device.signal_dbm)<=1?Remix.cellular1:h(a.device.signal_dbm)<=2?Remix.cellular2:Remix.cellular3)],8,["aria-label"])')
 
         elif filename=='route-sms':
+            s=replace(s,'o("div",Ws,[d(Hs,{loading:C.value,onClick:ut}', 'o("div",Ws,[d(SmsTransfer,{devices:v.value,currentDevice:g.value,onChanged:ut},null,8,["devices","currentDevice"]),d(Hs,{loading:C.value,onClick:ut}')
+            # Shared selection components keep every virtualized conversation
+            # row and the bottom action bar in sync.
+            search_input='d(U,{modelValue:M.value,"onUpdate:modelValue":s[0]||(s[0]=r=>M.value=r),placeholder:"搜索联系人/内容",clearable:""},null,8,["modelValue"])'
+            s=replace(s,search_input,'o("div",{class:"sms-search-select-row"},[d(SmsSelectionToggle),'+search_input+'])')
+            s=replace(s,'class:B(["flex flex-col min-h-0 min-w-0",We.value?', 'class:B(["relative flex flex-col min-h-0 min-w-0",We.value?')
+            s=replace(s,'{"sms-thread-item-shell-active":h.value===r.key}', '{"sms-thread-item-shell-active":h.value===r.key,"sms-thread-item-selected":isSelectedThread(r.key)}')
+            s=replace(s,'onPointerdown:w=>Kt(r,w)', 'onPointerdown:w=>selectionActive.value?void 0:Kt(r,w)')
+            s=replace(s,'},[o("button",{type:"button",class:"min-w-0 flex-1 text-left",onClick:w=>void je(r.key)}', '},[d(SmsSelectionCheck,{item:r},null,8,["item"]),o("button",{type:"button",class:"min-w-0 flex-1 text-left",onClick:w=>selectionActive.value?void 0:void je(r.key)}')
+            s=replace(s,'R.value?k("",!0):(u(),P(c,{key:0,text:"",class:B(["sms-danger-ghost-btn sms-delete-trigger sms-thread-delete-btn"', 'R.value||selectionActive.value?k("",!0):(u(),P(c,{key:0,text:"",class:B(["sms-danger-ghost-btn sms-delete-trigger sms-thread-delete-btn"')
+            selection_bar='d(SmsSelectionActions,{items:X.value,currentDevice:g.value,onChanged:ut},null,8,["items","currentDevice"])'
+            s=replace(s,']),_:1},8,["items"]))],2)):k("",!0),jt.value?', ']),_:1},8,["items"])),'+selection_bar+'],2)):k("",!0),jt.value?')
             s=replace(s,'o("span",{class:"text-xl font-bold"},"∅",-1)','o("span",{class:"text-xl"},[d(Remix.empty)])')
             s=replace(s,'Ts={class:"flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8"}','Ts={class:"vh-page-heading"}')
             s=replace(s,'$s={class:"text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400"}','$s={class:"vh-page-title"}')
@@ -84,6 +96,7 @@ def apply(root, out, version):
             s=replace(s,'Gs={class:"flex-1 ui-card overflow-hidden relative"}','Gs={class:"sms-content-panel flex-1 ui-card overflow-hidden relative"}')
             s=replace(s,'Ba={class:"flex items-end gap-3"}','Ba={class:"sms-composer flex items-end gap-3"}')
             s=replace(s,'px-5 py-4 rounded-2xl text-sm leading-[1.75] shadow-sm border','sms-message-bubble px-5 py-4 rounded-2xl text-sm leading-[1.75] border')
+            s='import {SmsSelectionToggle,SmsSelectionCheck,SmsSelectionActions,selectionActive,isSelectedThread} from "./SmsSelection-'+version+'.js";import SmsTransfer from "./SmsTransfer-'+version+'.js";'+s
         elif filename=='route-devices':
             # Keep the original filter/sort models and replace only their controls.
             start='t("div",fs,[r(R,{modelValue:b.value'
@@ -125,9 +138,35 @@ def apply(root, out, version):
             s=replace(s,'Bs={class:"flex flex-wrap items-center gap-2"}','Bs={class:"flex flex-wrap items-center gap-2 device-outline-actions"}')
             for label in ['"手动刷新"','"当前通知"','h(P)?"隐藏敏感信息":"显示敏感信息"']:
                 s=replace(s,'r(xe,{content:'+label+',placement:"top"}', 'r(xe,{disabled:true,content:'+label+',placement:"top"}')
+            # Local-only LPA QR/link recognition. Applying the parsed values never
+            # calls the existing download handler; the user still starts it explicitly.
+            lpa_state='W=w(null);let ue'
+            lpa_logic='W=w(null),smdpValue=w(""),lpaDialog=w(!1),lpaValue=w(""),lpaError=w(""),lpaBusy=w(!1),lpaFileInput=w(null);let lpaDecodeToken=0;function closeLpaDialog(){lpaDecodeToken++,lpaDialog.value=!1,lpaValue.value="",lpaError.value="",lpaBusy.value=!1,lpaFileInput.value&&(lpaFileInput.value.value="")}function openLpaDialog(){lpaValue.value="",lpaError.value="",lpaBusy.value=!1,lpaDialog.value=!0}async function decodeLpaFile(file){if(!file)return;const token=++lpaDecodeToken;lpaBusy.value=!0,lpaError.value="";try{const text=await decodeEsimQrFile(file,globalThis.jsQR);token===lpaDecodeToken&&(lpaValue.value=text)}catch(error){token===lpaDecodeToken&&(lpaError.value=error?.message||"二维码识别失败")}finally{token===lpaDecodeToken&&(lpaBusy.value=!1)}}async function handleLpaPaste(event){const item=Array.from(event.clipboardData?.items||[]).find(item=>item.type.startsWith("image/"));if(!item)return;event.preventDefault(),event.stopPropagation();await decodeLpaFile(item.getAsFile())}function chooseLpaFile(){lpaFileInput.value?.click()}async function handleLpaFileChange(event){const file=event.target.files?.[0];event.target.value="";await decodeLpaFile(file)}function applyLpaImport(){try{const parsed=parseLpaActivationCode(lpaValue.value);smdpValue.value=parsed.smdp,_.value={..._.value,smdp:parsed.smdp,matchingId:parsed.matchingId,confirmationCode:parsed.confirmationCode},closeLpaDialog(),J.success("已识别并填入下载信息，请确认后点击“开始下载”")}catch(error){lpaError.value=error?.message||"eSIM 激活链接格式不正确"}}let ue'
+            s=replace(s,lpa_state,lpa_logic)
+            s=replace(s,',smdpValue=w("")','')
+            s=replace(s,'smdpValue.value=parsed.smdp,','')
+            s=replace(s,'confirmationCode:parsed.confirmationCode},closeLpaDialog()','confirmationCode:parsed.confirmationCode},queueMicrotask(()=>{const input=document.getElementById("esim-smdp-input");input&&(input.value=parsed.smdp)}),closeLpaDialog()')
+            # The original watcher clears the SM-DP+ input in the bundled UI on
+            # some Element Plus updates. Parsing now lives in the explicit import
+            # dialog, so keep the form field as an ordinary editable value.
+            s=replace(s,'Se(()=>_.value.smdp,L=>{if(L)if(L.startsWith("LPA:")){const x=L.split("$");x.length>=3&&(_.value.smdp=x[1],_.value.matchingId=x[2],J.success("已自动解析完整的 LPA 激活码"))}else(L.startsWith("http://")||L.startsWith("https://"))&&(_.value.smdp=L.replace(/^https?:\\/\\//i,""))});','')
+            s=replace(s,'async function Me(){const{smdp:L,matchingId:x,confirmationCode:Z,aidHex:K,imei:xe}=_.value','async function Me(){const{matchingId:x,confirmationCode:Z,aidHex:K,imei:xe}=_.value,L=(document.getElementById("esim-smdp-input")?.value||"").trim()')
+            s=replace(s,'_.value={smdp:"",matchingId:"",confirmationCode:"",aidHex:se,imei:xe},await oe(!0)','document.getElementById("esim-smdp-input")&&(document.getElementById("esim-smdp-input").value=""),_.value={smdp:"",matchingId:"",confirmationCode:"",aidHex:se,imei:xe},await oe(!0)')
+            smdp_input='r(ye,{modelValue:_.value.smdp,"onUpdate:modelValue":x[5]||(x[5]=Q=>_.value.smdp=Q),placeholder:"例如 rsp.truphone.com"},null,8,["modelValue"])'
+            native_smdp_input='t("textarea",{id:"esim-smdp-input",class:"el-textarea__inner esim-smdp-textarea",rows:"1",autocomplete:"off",spellcheck:"false",placeholder:"例如 rsp.truphone.com"})'
+            s=replace(s,smdp_input,native_smdp_input)
+            s=replace(s,'na(()=>{D(),re&&re.abort()})','na(()=>{D(),re&&re.abort(),closeLpaDialog()})')
+            s=replace(s,'Jr={class:"flex items-center gap-2 mb-3"}','Jr={class:"esim-download-heading"}')
+            heading='t("div",Jr,[t("div",Yr,[r(Z,{size:"16"},{default:$(()=>[r(Remix.add)]),_:1})]),x[29]||(x[29]=t("div",{class:"text-sm font-bold text-gray-900 dark:text-white"},"下载新 Profile",-1))])'
+            new_heading='t("div",Jr,[t("div",{class:"esim-download-title"},[t("div",Yr,[r(Z,{size:"16"},{default:$(()=>[r(Remix.downloadBox)]),_:1})]),x[29]||(x[29]=t("div",{class:"text-sm font-bold text-gray-900 dark:text-white"},"下载新 Profile",-1))]),r(K,{class:"esim-lpa-trigger",onClick:openLpaDialog},{default:$(()=>[q("二维码/链接识别")]),_:1})])'
+            s=replace(s,heading,new_heading)
+            modal_anchor=']),_:1},8,["modelValue","width"]),l.value?'
+            modal='r(Ne,{modelValue:lpaDialog.value,"onUpdate:modelValue":Q=>Q?lpaDialog.value=!0:closeLpaDialog(),title:"二维码/链接识别",width:"min(560px, 92vw)",class:"glass-modal esim-lpa-dialog"},{default:$(()=>[t("div",{class:"esim-lpa-import",onPaste:handleLpaPaste},[t("p",{class:"esim-lpa-help"},"可粘贴剪贴板中的二维码图片，也可以从手机相册或电脑选择图片。图片只在浏览器内识别，不上传、不缓存。"),t("div",{class:"esim-lpa-upload"},[t("input",{ref:lpaFileInput,type:"file",class:"esim-lpa-file-input",accept:".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp",onChange:handleLpaFileChange}),r(K,{disabled:lpaBusy.value,onClick:chooseLpaFile},{default:$(()=>[q("选择二维码图片")]),_:1},8,["disabled"]),t("small",null,"支持 JPG、JPEG、PNG、WebP，最大 8 MB")]),t("label",{class:"esim-lpa-field"},[t("span",null,"eSIM 激活链接"),r(ye,{modelValue:lpaValue.value,"onUpdate:modelValue":Q=>lpaValue.value=Q,type:"textarea",rows:4,autofocus:"",disabled:lpaBusy.value,placeholder:"LPA:1$SM-DP+地址$Matching ID（可空）$确认码（可选）"},null,8,["modelValue","disabled"])]),lpaBusy.value?t("p",{class:"esim-lpa-status"},"正在识别二维码…"):lpaError.value?t("p",{class:"esim-lpa-error",role:"alert"},lpaError.value,1):t("p",{class:"esim-lpa-status"},"选择或粘贴图片后会自动读取二维码内容，请检查无误后点击“识别”。")])]),footer:$(()=>[r(K,{onClick:closeLpaDialog},{default:$(()=>[q("取消")]),_:1}),r(K,{type:"primary",disabled:lpaBusy.value,onClick:applyLpaImport},{default:$(()=>[q("识别")]),_:1},8,["disabled"])])},8,["modelValue"])'
+            s=replace(s,modal_anchor,']),_:1},8,["modelValue","width"]),'+modal+',l.value?')
+            s='import {decodeEsimQrFile,parseLpaActivationCode} from "./qr-import-'+version+'.js";import "./jsQR-'+version+'.js";'+s
 
         elif filename=='route-logs':
-            s=replace(s,'S=i(!0),m=i("all")','S=i(!0),wrapLogs=i(false),m=i("all")')
+            s=replace(s,'S=i(!0),m=i("all")','S=i(!0),wrapLogs=i(true),m=i("all")')
             start='actions:y(()=>[l("div",_e,['
             end=']),_:1}),l("div",xe,'
             assert s.count(start)==s.count(end)==1
@@ -172,7 +211,7 @@ def apply(root, out, version):
             subprocess.run(['node',str(root/'app/frontend/split-settings.cjs'),str(path)],check=True)
     # Native library dialog controls retain their existing close handler and label.
     svg=(root/'app/frontend/remixicon/close-line.svg').read_text()
-    css=out/'assets'/('wise-theme-'+version+'.css')
+    css=out/'assets'/('vohivex-theme-'+version+'.css')
     with css.open('a') as f:
         f.write('\n:root{--vh-close-icon:url("data:image/svg+xml,'+quote(svg)+'")}\n')
         check=(root/'app/frontend/remixicon/check-line.svg').read_text()

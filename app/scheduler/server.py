@@ -13,7 +13,8 @@ import select
 import signal
 import threading
 import time
-from urllib.parse import urlsplit, unquote, quote
+from datetime import datetime
+from urllib.parse import urlsplit, unquote, quote, parse_qs
 import yaml
 from engine import Store, Worker, Invalid, Conflict
 from egress_ip import EgressProbe, device_egress
@@ -21,6 +22,7 @@ from managed_proxy import Manager
 from account import username_from, rename_username
 from notifications import Dispatcher, NotificationWorker
 from delivery import DeliveryWorker
+from sms_archive import SmsArchive
 
 UPSTREAM_HOST = os.environ.get('VOHIVE_UPSTREAM_HOST', '127.0.0.1')
 UPSTREAM_PORT = int(os.environ.get('VOHIVE_UPSTREAM_PORT', '7576'))
@@ -29,6 +31,7 @@ CONFIG = Path(os.environ.get('CONFIG_PATH', '/app/config/config.yaml'))
 STORE = None
 PROXIES = None
 ACCOUNT_RESTART = None
+SMS_ARCHIVE = None
 HOP = {'connection','keep-alive','proxy-authenticate','proxy-authorization','te','trailer','transfer-encoding','upgrade'}
 BUILTIN_ID = 'vohive-mihomo'
 BUILTIN_LOCK = threading.RLock()
@@ -429,6 +432,117 @@ class Handler(BaseHTTPRequestHandler):
         except KeyError:
             return self.json(404, {'error':'任务不存在'})
 
+    @staticmethod
+    def _sms_time(value):
+        try:
+            return datetime.fromisoformat(str(value or '').replace('Z', '+00:00')).timestamp()
+        except (ValueError, TypeError, OverflowError):
+            return 0
+
+    def sms_history(self, path):
+        """Merge imported archives with the upstream SMS history.
+
+        This path never invokes the send endpoint. Imported messages are stored
+        with negative browser-facing IDs, allowing deletion without colliding
+        with IDs owned by the upstream VoHive database.
+        """
+        auth = self.headers.get('Authorization', '')
+        if not auth.startswith('Bearer ') or len(auth) > 8192:
+            return self.json(401, {'error':'请先登录 VoHiveX'})
+        status, device_data = api('/api/devices', auth)
+        if status != 200:
+            return self.json(401 if status in (401, 403) else 503,
+                             {'error':'无法验证登录状态，请重新登录或稍后重试'})
+        if SMS_ARCHIVE is None:
+            return self.json(503, {'error':'短信归档服务正在启动'})
+        query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+
+        if path == '/api/sms/archive/import':
+            if self.command != 'POST':
+                return self.json(405, {'error':'方法不支持'})
+            if self.headers.get('Content-Type','').split(';')[0] != 'application/json':
+                return self.json(415, {'error':'仅接受 JSON 短信归档'})
+            origin = self.headers.get('Origin')
+            if origin and urlsplit(origin).netloc != self.headers.get('Host'):
+                return self.json(403, {'error':'不允许跨站导入短信'})
+            try:
+                payload = json.loads(self.body(16 * 1024 * 1024))
+                if not isinstance(payload, dict) or not isinstance(payload.get('messages'), list):
+                    raise ValueError('归档格式无效')
+                rows = payload['messages']
+                if not rows or len(rows) > 20000 or any(not isinstance(row, dict) for row in rows):
+                    raise ValueError('归档必须包含 1–20000 条短信')
+                device_id = str(payload.get('device_id') or '').strip()
+                device = next((row for row in devices_from(device_data) if row.get('id') == device_id), None)
+                if device is None:
+                    raise ValueError('导入设备不存在，请重新选择')
+                inserted = SMS_ARCHIVE.import_messages(device, rows)
+                return self.json(200, {'inserted':inserted, 'skipped':len(rows)-inserted})
+            except (ValueError, TypeError, OverflowError) as exc:
+                return self.json(400, {'error':str(exc)[:200]})
+
+        if self.command == 'GET' and path == '/api/sms/contacts':
+            code, value = api(self.path, auth, timeout=25)
+            if code != 200:
+                return self.json(code, value)
+            upstream = value if isinstance(value, list) else []
+            device_id = (query.get('device_id') or [None])[0]
+            merged = {}
+            for row in upstream + SMS_ARCHIVE.contacts(device_id):
+                if not isinstance(row, dict):
+                    continue
+                key = (str(row.get('imsi') or ''), str(row.get('peer') or ''))
+                old = merged.get(key)
+                if old is None or self._sms_time(row.get('last_timestamp')) >= self._sms_time(old.get('last_timestamp')):
+                    merged[key] = row
+            limit = max(1, min(int((query.get('limit') or ['200'])[0]), 500))
+            rows = sorted(merged.values(), key=lambda row:self._sms_time(row.get('last_timestamp')), reverse=True)
+            return self.json(200, rows[:limit])
+
+        if self.command == 'GET' and path == '/api/sms/thread':
+            code, value = api(self.path, auth, timeout=25)
+            if code != 200:
+                return self.json(code, value)
+            peer = str((query.get('peer') or [''])[0]).strip()
+            if not peer:
+                return self.json(400, {'error':'缺少短信联系人'})
+            device_id = (query.get('device_id') or [None])[0]
+            imsi = (query.get('imsi') or [None])[0]
+            limit = max(1, min(int((query.get('limit') or ['200'])[0]), 500))
+            before_ts = (query.get('before_ts') or [None])[0]
+            before_id = (query.get('before_id') or [None])[0]
+            archive = SMS_ARCHIVE.messages(peer, device_id, imsi, limit, before_ts, before_id)
+            rows = [row for row in (value if isinstance(value, list) else []) if isinstance(row, dict)] + archive
+            rows.sort(key=lambda row:(self._sms_time(row.get('timestamp')), int(row.get('id') or 0)))
+            return self.json(200, rows[-limit:])
+
+        if self.command == 'DELETE' and path.startswith('/api/sms/messages/'):
+            try:
+                message_id = int(path.rsplit('/', 1)[-1])
+            except ValueError:
+                return self.proxy()
+            if message_id >= 0:
+                return self.proxy()
+            result = SMS_ARCHIVE.delete_message(message_id)
+            return self.json(200 if result['deleted'] else 404,
+                             result if result['deleted'] else {'error':'短信不存在'})
+
+        if self.command == 'DELETE' and path == '/api/sms/thread':
+            peer = str((query.get('peer') or [''])[0]).strip()
+            if not peer:
+                return self.json(400, {'error':'缺少短信联系人'})
+            device_id = (query.get('device_id') or [None])[0]
+            imsi = (query.get('imsi') or [None])[0]
+            archived = SMS_ARCHIVE.delete_thread(peer, device_id, imsi)
+            code, value = api(self.path, auth, timeout=25, method='DELETE')
+            if code not in (200, 204, 404) and not archived:
+                return self.json(code, value)
+            result = value if isinstance(value, dict) else {}
+            result.update({'deleted_imported':archived, 'thread_empty':True})
+            return self.json(200, result)
+
+        return self.proxy()
+
     def proxy(self):
         body = self.body()
         conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=180)
@@ -493,6 +607,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.managed_proxy(path)
             if path == '/api/schedules' or path.startswith('/api/schedules/'):
                 return self.scheduler(path)
+            if path == '/api/sms/archive/import' or path == '/api/sms/contacts' or path == '/api/sms/thread' or path.startswith('/api/sms/messages/'):
+                return self.sms_history(path)
             static_name = 'index.html' if path in ('/','/index.html') else 'api/docs/index.html' if path.rstrip('/') == '/api/docs' else path.lstrip('/')
             static = ASSETS / static_name
             if self.command in ('GET','HEAD') and static.is_relative_to(ASSETS) and '..' not in path.split('/') and static.is_file():
@@ -525,6 +641,7 @@ if __name__ == '__main__':
     os.umask(0o077)
     ACCOUNT_RESTART = lambda: os.kill(os.getppid(), signal.SIGTERM)
     STORE = Store(os.environ.get('SCHEDULER_DB','/app/data/scheduled-sms.sqlite3'))
+    SMS_ARCHIVE = SmsArchive(os.environ.get('SMS_ARCHIVE_DB','/app/data/imported-sms.sqlite3'))
     PROXIES = Manager(os.environ.get('PROXY_DATA','/app/data/managed-proxy'), os.environ.get('MIHOMO_BINARY','/opt/vohivex/proxy/mihomo'))
     try: PROXIES.start()
     except Exception: PROXIES.error = '代理核心未启动，请检查容器'

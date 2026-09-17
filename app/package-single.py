@@ -29,7 +29,7 @@ def main():
         'app/init-config.py', 'app/driver-lib.sh', 'app/driver.sh', 'app/single-start.sh', 'app/verify-build.py',
         'app/scheduler/server.py', 'app/scheduler/engine.py', 'app/scheduler/account.py',
         'app/scheduler/managed_proxy.py', 'app/scheduler/egress_ip.py',
-        'app/scheduler/notifications.py', 'app/scheduler/delivery.py',
+        'app/scheduler/notifications.py', 'app/scheduler/delivery.py', 'app/scheduler/sms_archive.py',
         'app/proxy/vendor/mihomo-linux-amd64-compatible',
         'app/proxy/vendor/manifest.json', 'app/proxy/vendor/LICENSE.mihomo',
         'app/proxy/vendor/LICENSE.jsQR', 'app/proxy/THIRD-PARTY.md',

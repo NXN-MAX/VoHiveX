@@ -26,5 +26,6 @@
 !app/scheduler/account.py
 !app/scheduler/notifications.py
 !app/scheduler/delivery.py
+!app/scheduler/sms_archive.py
 
 !app/init-config.py
