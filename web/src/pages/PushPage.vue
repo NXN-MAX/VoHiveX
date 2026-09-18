@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'antdv-next'
 import PageHeader from '@/components/PageHeader.vue'
 import PasswordInput from '@/components/PasswordInput.vue'
@@ -8,6 +8,7 @@ import { apiError, request } from '@/api/http'
 const active = ref('telegram')
 const loading = ref(false)
 const saving = ref(false)
+const testing = reactive({ webhook: false, bark: false, email: false })
 const config = reactive<any>({
   telegram: { enabled: false, bot_token: '', chat_id: '', admin_id: '', base_url: '', proxy: '' },
   feishu: { enabled: false, app_id: '', app_secret: '', chat_ids: '' },
@@ -22,6 +23,7 @@ const barkLevels = [{ label: '时效性 (timeSensitive)', value: 'timeSensitive'
 const pushplusChannels = [{ label: '微信 (wechat)', value: 'wechat' }, { label: 'Webhook (webhook)', value: 'webhook' }, { label: '企业微信 (cp)', value: 'cp' }, { label: '邮件 (mail)', value: 'mail' }]
 const webhookTemplatePlaceholder = '{{device_label}} {{text}}'
 const webhookTemplateHelp = '支持 {{text}}、{{event}}、{{timestamp}}、{{device_id}}、{{device_name}}、{{device_label}}；留空则发送原始文本。'
+const reservedHeaders = new Set(['content-type', 'x-vohive-signature'])
 
 function join(value: unknown) { return Array.isArray(value) ? value.join(',') : String(value || '') }
 function lines(value: unknown) { return Array.isArray(value) ? value.join('\n') : String(value || '') }
@@ -37,7 +39,7 @@ function parseHeaders(value: unknown) {
     if (index <= 0) continue
     const key = row.slice(0, index).trim()
     const item = row.slice(index + 1).trim()
-    if (key && item) headers[key] = item
+    if (key && item && !reservedHeaders.has(key.toLowerCase())) headers[key] = item
   }
   return headers
 }
@@ -52,6 +54,7 @@ async function load() {
     config.email.to_addresses = join(data.email?.to_addresses)
     config.webhook.urls = lines(data.webhook?.urls)
     config.webhook.headers_text = headersToText(data.webhook?.headers)
+    config.pushplus.channel = data.pushplus?.channel || 'wechat'
   } catch (reason) { message.error(apiError(reason).message) } finally { loading.value = false }
 }
 function payload() {
@@ -67,14 +70,31 @@ function payload() {
 }
 async function save() {
   saving.value = true
-  try { await request({ method: 'PUT', url: '/settings/notifications', data: payload() }); message.success('消息推送配置已保存') }
+  try {
+    const result = await request<any>({ method: 'PUT', url: '/settings/notifications', data: payload() })
+    if (result?.applied === false && result?.warning) message.warning(String(result.warning))
+    else message.success('消息推送配置已保存')
+  }
   catch (reason) { message.error(apiError(reason).message) }
   finally { saving.value = false }
 }
 async function test(kind: 'webhook' | 'bark' | 'email') {
-  try { await request({ method: 'POST', url: `/settings/notifications/${kind}/test`, data: payload()[kind] }); message.success('测试消息已发送') }
+  testing[kind] = true
+  try {
+    const result = await request<any>({ method: 'POST', url: `/settings/notifications/${kind}/test`, data: payload()[kind] })
+    if (result?.ok === false) {
+      const failed = Array.isArray(result.failed_urls) && result.failed_urls.length ? `；失败 URL：${result.failed_urls.join('、')}` : ''
+      message.error(`${result.message || '测试消息发送失败'}${failed}`)
+    } else message.success(result?.message || '测试消息已发送')
+  }
   catch (reason) { message.error(apiError(reason).message) }
+  finally { testing[kind] = false }
 }
+function emailReady() {
+  const email = config.email
+  return Boolean(email.smtp_host && email.smtp_port && email.username && email.password && email.from_address && split(email.to_addresses).length)
+}
+watch(() => Number(config.email.smtp_port), (port) => { if (port === 465) config.email.use_ssl = true })
 onMounted(load)
 </script>
 
@@ -99,33 +119,33 @@ onMounted(load)
             <a-form v-else-if="tab.key === 'feishu'" layout="vertical" class="channel-form">
               <div class="two-cols"><a-form-item label="App ID"><a-input v-model:value="config.feishu.app_id" :disabled="!config.feishu.enabled" placeholder="cli_xxxx" /></a-form-item><a-form-item label="App Secret"><PasswordInput v-model:value="config.feishu.app_secret" :disabled="!config.feishu.enabled" placeholder="••••••••" /></a-form-item></div>
               <a-form-item label="Chat IDs"><a-input v-model:value="config.feishu.chat_ids" :disabled="!config.feishu.enabled" placeholder="多个群组用英文逗号分隔" /><p class="field-help">飞书群聊的 Chat ID（oc_xxxx），可通过飞书开放平台 API 获取，支持逗号分隔多个群组。</p></a-form-item>
-              <ol class="config-notes"><li>在飞书开放平台创建自建应用并启用“机器人”能力。</li><li>在“事件与回调 → 事件配置”中选择“使用长连接接收事件”。</li><li>添加 im:message 和 im:message:send_as_bot 权限。</li></ol>
+              <ol class="config-notes"><li>在 <a href="https://open.feishu.cn" target="_blank" rel="noreferrer">飞书开放平台</a> 创建自建应用并启用“机器人”能力。</li><li>在“事件与回调 → 事件配置”中选择“使用长连接接收事件”。</li><li>添加 im:message 和 im:message:send_as_bot 权限。</li></ol>
             </a-form>
 
             <a-form v-else-if="tab.key === 'qq'" layout="vertical" class="channel-form">
               <div class="two-cols"><a-form-item label="App ID"><a-input v-model:value="config.qq.app_id" :disabled="!config.qq.enabled" placeholder="QQ Bot App ID" /></a-form-item><a-form-item label="App Secret"><PasswordInput v-model:value="config.qq.app_secret" :disabled="!config.qq.enabled" placeholder="••••••••" /></a-form-item></div>
               <a-form-item label="Group IDs（群聊）"><a-input v-model:value="config.qq.group_ids" :disabled="!config.qq.enabled" placeholder="群聊 OpenID，多个使用逗号分隔" /></a-form-item>
               <a-form-item label="User IDs（私聊）"><a-input v-model:value="config.qq.direct_ids" :disabled="!config.qq.enabled" placeholder="用户 OpenID，多个使用逗号分隔" /></a-form-item>
-              <ol class="config-notes"><li>在 QQ Bot 官方控制台申请并配置机器人。</li><li>向机器人发送消息后，可从系统日志查看 OpenID；填写后 Bot 只对匹配会话回复和推送。</li></ol>
+              <ol class="config-notes"><li>在 <a href="https://q.qq.com/qqbot/openclaw/index.html" target="_blank" rel="noreferrer">QQ Bot 官方控制台</a> 申请并配置机器人。</li><li>向机器人发送消息后，可从系统日志查看 OpenID；填写后 Bot 只对匹配会话回复和推送。</li></ol>
             </a-form>
 
             <a-form v-else-if="tab.key === 'bark'" layout="vertical" class="channel-form">
               <a-form-item label="目标 URLs"><a-textarea v-model:value="config.bark.urls" :disabled="!config.bark.enabled" :rows="3" placeholder="https://api.day.app/YOUR_KEY/&#10;每行一个地址" /></a-form-item>
               <div class="two-cols"><a-form-item label="分组（Group）"><a-input v-model:value="config.bark.group" :disabled="!config.bark.enabled" placeholder="例如 vohive" /><p class="field-help">iOS 设备上的通知分组。</p></a-form-item><a-form-item label="通知级别（Level）"><a-select v-model:value="config.bark.level" :disabled="!config.bark.enabled" :options="barkLevels" placeholder="选择通知级别" /><p class="field-help">iOS 的专注模式和打扰规则会根据此级别决定是否亮屏。</p></a-form-item></div>
               <a-form-item label="图标（Icon）"><a-input v-model:value="config.bark.icon" :disabled="!config.bark.enabled" placeholder="图标 URL，可选" /></a-form-item>
-              <a-button class="ghost-button" :disabled="!config.bark.enabled || !config.bark.urls.trim()" @click="test('bark')">发送测试</a-button>
+              <a-button class="ghost-button" :loading="testing.bark" :disabled="!config.bark.enabled || !config.bark.urls.trim()" @click="test('bark')">发送测试</a-button>
             </a-form>
 
             <a-form v-else-if="tab.key === 'email'" layout="vertical" class="channel-form">
               <div class="three-cols"><a-form-item label="SMTP 主机"><a-input v-model:value="config.email.smtp_host" :disabled="!config.email.enabled" placeholder="smtp.example.com" /></a-form-item><a-form-item label="SMTP 端口"><a-input-number v-model:value="config.email.smtp_port" :disabled="!config.email.enabled" placeholder="465 / 587" /></a-form-item><a-form-item label="使用 SSL/TLS"><div class="switch-field"><a-switch v-model:checked="config.email.use_ssl" :disabled="!config.email.enabled" /></div></a-form-item></div>
               <div class="two-cols"><a-form-item label="用户名（Username）"><a-input v-model:value="config.email.username" :disabled="!config.email.enabled" placeholder="邮箱账号" /></a-form-item><a-form-item label="密码（Password）"><PasswordInput v-model:value="config.email.password" :disabled="!config.email.enabled" placeholder="邮箱密码或授权码" /></a-form-item></div>
               <div class="two-cols"><a-form-item label="发件人地址（From）"><a-input v-model:value="config.email.from_address" :disabled="!config.email.enabled" placeholder="例如 noreply@example.com" /></a-form-item><a-form-item label="收件人地址（To）"><a-input v-model:value="config.email.to_addresses" :disabled="!config.email.enabled" placeholder="多个收件人请用英文逗号分隔" /></a-form-item></div>
-              <a-button class="ghost-button" :disabled="!config.email.enabled" @click="test('email')">发送测试</a-button>
+              <a-button class="ghost-button" :loading="testing.email" :disabled="!config.email.enabled || !emailReady()" @click="test('email')">发送测试</a-button>
             </a-form>
 
             <a-form v-else-if="tab.key === 'pushplus'" layout="vertical" class="channel-form">
               <a-form-item label="Token"><PasswordInput v-model:value="config.pushplus.token" :disabled="!config.pushplus.enabled" placeholder="Pushplus 用户的 Token" /></a-form-item>
-              <div class="two-cols"><a-form-item label="群组编码（Topic）"><a-input v-model:value="config.pushplus.topic" :disabled="!config.pushplus.enabled" placeholder="群组编码，不填则发给个人" /></a-form-item><a-form-item label="渠道（Channel）"><a-select v-model:value="config.pushplus.channel" :disabled="!config.pushplus.enabled" :options="pushplusChannels" placeholder="选择渠道" /></a-form-item></div>
+              <div class="two-cols"><a-form-item label="群组编码（Topic）"><a-input v-model:value="config.pushplus.topic" :disabled="!config.pushplus.enabled" placeholder="群组编码，不填则发给个人" /></a-form-item><a-form-item label="渠道（Channel）"><a-select v-model:value="config.pushplus.channel" :disabled="!config.pushplus.enabled" :options="pushplusChannels" placeholder="选择渠道" /><p class="field-help">支持微信、Webhook、企业微信和邮件四种 Pushplus 渠道。</p></a-form-item></div>
             </a-form>
 
             <a-form v-else layout="vertical" class="channel-form">
@@ -134,7 +154,7 @@ onMounted(load)
               <a-form-item label="自定义请求头（Headers）"><a-textarea v-model:value="config.webhook.headers_text" :disabled="!config.webhook.enabled" :rows="3" placeholder="Authorization: Bearer xxx&#10;X-Api-Key: your-key" /><p class="field-help">每行填写一个 Header。Content-Type 与 X-Vohive-Signature 为系统保留头。</p></a-form-item>
               <a-form-item label="文本模板（Text Template）"><a-textarea v-model:value="config.webhook.text_template" :disabled="!config.webhook.enabled" :rows="2" :placeholder="webhookTemplatePlaceholder" /><p class="field-help">{{ webhookTemplateHelp }}</p></a-form-item>
               <div class="two-cols"><a-form-item label="请求超时（ms）"><a-input-number v-model:value="config.webhook.timeout_ms" :disabled="!config.webhook.enabled" :min="1000" :max="60000" /></a-form-item><a-form-item label="最大重试次数"><a-input-number v-model:value="config.webhook.retry_max" :disabled="!config.webhook.enabled" :min="0" :max="10" /></a-form-item></div>
-              <a-button class="ghost-button" :disabled="!config.webhook.enabled || !config.webhook.urls.trim()" @click="test('webhook')">发送测试</a-button>
+              <a-button class="ghost-button" :loading="testing.webhook" :disabled="!config.webhook.enabled || !config.webhook.urls.trim()" @click="test('webhook')">发送测试</a-button>
             </a-form>
           </a-tab-pane>
         </a-tabs>
@@ -144,5 +164,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.push-page,.push-panel,.channel-form{width:100%;min-width:0}.push-panel{padding:16px 24px 28px;border-radius:24px;background:var(--vx-canvas)}.push-tabs :deep(.ant-tabs-tab){margin-right:4px!important;padding:9px 12px!important;font-size:13px}.channel-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 20px}.channel-heading h2{margin:0;color:var(--vx-ink);font-size:20px}.channel-heading p{margin:4px 0 0;color:var(--vx-muted);font-size:12px}.two-cols,.three-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.three-cols{grid-template-columns:minmax(0,1.3fr) minmax(150px,.55fr) minmax(150px,.55fr)}.channel-form :deep(.ant-input-number){width:100%}.field-help{margin:6px 2px 0;color:var(--vx-muted);font-size:11px;line-height:1.55}.config-notes{display:grid;gap:5px;margin:0 0 20px;padding-left:22px;color:var(--vx-muted);font-size:12px;line-height:1.55}.switch-field{display:flex;height:42px;align-items:center;padding:0 3px}@media(max-width:760px){.two-cols,.three-cols{grid-template-columns:1fr}}
+.push-page,.push-panel,.channel-form{width:100%;min-width:0}.push-panel{padding:16px 24px 28px;border-radius:24px;background:var(--vx-canvas)}.push-tabs :deep(.ant-tabs-tab){margin-right:4px!important;padding:9px 12px!important;font-size:13px}.channel-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 20px}.channel-heading h2{margin:0;color:var(--vx-ink);font-size:20px}.channel-heading p{margin:4px 0 0;color:var(--vx-muted);font-size:12px}.two-cols,.three-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.three-cols{grid-template-columns:minmax(0,1.3fr) minmax(150px,.55fr) minmax(150px,.55fr)}.channel-form :deep(.ant-input-number){width:100%}.field-help{margin:6px 2px 0;color:var(--vx-muted);font-size:11px;line-height:1.55}.config-notes{display:grid;gap:5px;margin:0 0 20px;padding-left:22px;color:var(--vx-muted);font-size:12px;line-height:1.55}.config-notes a{color:var(--vx-accent-ink);text-decoration:underline}.switch-field{display:flex;height:42px;align-items:center;padding:0 3px}@media(max-width:760px){.two-cols,.three-cols{grid-template-columns:1fr}}
 </style>

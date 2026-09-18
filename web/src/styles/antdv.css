@@ -18,7 +18,5 @@ textarea.ant-input{border-radius:14px!important}
 .ant-switch.ant-switch-checked{background:var(--vx-accent)!important}.ant-switch.ant-switch-checked .ant-switch-handle::before{background:#163300}
 .ant-checkbox-checked .ant-checkbox-inner,.ant-radio-wrapper .ant-radio-checked .ant-radio-inner{background:var(--vx-ink);border-color:var(--vx-ink)}
 .ant-tag{border-radius:999px}
-.ant-tooltip .ant-tooltip-inner{display:flex;min-height:32px;align-items:center;justify-content:center;padding:6px 10px!important;background:#111!important;color:#fff!important;line-height:20px;text-align:center}.ant-tooltip .ant-tooltip-arrow::before{background:#111!important}
-.nav-tooltip .ant-tooltip-inner{display:block;height:36px;min-height:36px;padding:0 12px!important;line-height:36px;white-space:nowrap}
 .dark input::placeholder,.dark textarea::placeholder,.dark .ant-select-selection-placeholder{color:var(--vx-muted)!important;opacity:1!important}
 .dark .ant-dropdown-menu,.dark .ant-select-dropdown,.dark .ant-tabs-dropdown-menu,.dark .ant-popover-inner{background:var(--vx-panel);color:var(--vx-text)}

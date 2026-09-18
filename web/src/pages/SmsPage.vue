@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Modal, message } from 'antdv-next'
 import PageHeader from '@/components/PageHeader.vue'
@@ -37,6 +37,9 @@ const transferBusy = ref(false)
 const importRows = ref<Record<string, any>[]>([])
 const mobileChatOpen = ref(false)
 const unreadVersion = ref(0)
+let pollTimer = 0
+let contactsBusy = false
+let threadBusy = false
 
 const current = computed(() => contacts.value.find((row) => row.key === activeKey.value))
 const filtered = computed(() => {
@@ -84,7 +87,11 @@ function measureSms(value: string) {
   return { encoding: gsm7 ? 'GSM7' : 'UCS-2', segments: Math.max(1, Math.ceil(units / (units <= single ? single : multipart))), chars: chars.length }
 }
 function messageContent(row: SmsMessage) { return String(row.content ?? row.text ?? '') }
-function isOutgoing(row: SmsMessage) { return Boolean(row.outgoing || row.direction === 'out' || row.direction === 'sent' || row.type === 'sent') }
+function isOutgoing(row: SmsMessage) {
+  const direction = String(row.direction || '').toLowerCase()
+  const type = String(row.type ?? '').toLowerCase()
+  return Boolean(row.outgoing || row.is_outgoing || ['out', 'outgoing', 'outbound', 'sent', 'send'].includes(direction) || ['2', 'out', 'outgoing', 'sent'].includes(type))
+}
 function phoneOf(device?: Device) { return String(device?.msisdn || device?.phone_number || device?.local_phone || '') }
 function seenKey(row: SmsContact & { key: string }) { return `sms_thread_last_seen:${deviceId.value}:${row.key}` }
 function toEpoch(value: unknown) {
@@ -93,17 +100,31 @@ function toEpoch(value: unknown) {
   const parsed = new Date(String(value || '')).getTime()
   return Number.isFinite(parsed) ? parsed : 0
 }
+function contactTimestamp(row: SmsContact) { return row.last_timestamp ?? row.last_ts ?? (row as any).timestamp }
+function messageTimestamp(row: SmsMessage) { return row.timestamp ?? (row as any).created_at ?? (row as any).sent_at ?? (row as any).received_at }
+function rowsFrom<T>(value: T[] | Record<string, any> | null | undefined, keys: string[]): T[] {
+  if (Array.isArray(value)) return value
+  for (const key of keys) if (Array.isArray((value as any)?.[key])) return (value as any)[key]
+  return []
+}
 function isUnread(row: SmsContact & { key: string }) {
   void unreadVersion.value
   const stored = localStorage.getItem(seenKey(row))
   if (stored === 'unread') return true
   const last = toEpoch(stored)
-  const latest = toEpoch(row.last_ts)
-  if (last && latest && last >= latest) return false
-  return Number(row.unread || (row as any).unread_count || 0) > 0
+  const latest = toEpoch(contactTimestamp(row))
+  if (last && (!latest || last >= latest)) return false
+  const hasServerReadState = row.is_unread !== undefined || row.unread !== undefined || row.unread_count !== undefined || row.read !== undefined
+  const serverUnread = Boolean(row.is_unread || Number(row.unread || row.unread_count || 0) > 0)
+  if (hasServerReadState) return row.read === true ? false : serverUnread
+  return Boolean(latest && !last)
 }
 function messageStatus(row: SmsMessage) {
-  const status = String(row.status || '').toLowerCase()
+  const raw = row.delivery_status ?? row.send_status ?? row.delivery_state ?? row.status
+  const status = String(raw ?? '').toLowerCase()
+  if (Number(raw) === 2) return { label: '发送成功', class: 'success' }
+  if (Number(raw) === 3) return { label: '发送失败', class: 'failed' }
+  if (Number(raw) === 1) return { label: '发送中', class: 'pending' }
   if (['sent', 'success', 'delivered', 'ok'].includes(status)) return { label: status === 'delivered' ? '已送达' : '发送成功', class: 'success' }
   if (['failed', 'error', 'undelivered'].includes(status)) return { label: '发送失败', class: 'failed' }
   if (['queued', 'pending', 'sending', 'submitted'].includes(status)) return { label: '发送中', class: 'pending' }
@@ -115,33 +136,51 @@ async function loadDevices() {
   devices.value = data.devices || []
   transferDevice.value ||= devices.value[0]?.id || ''
 }
-async function loadContacts(keep = true) {
-  loading.value = true
+async function loadContacts(keep = true, silent = false) {
+  if (contactsBusy) return
+  contactsBusy = true
+  if (!silent) loading.value = true
   try {
-    const rows = await request<SmsContact[]>({ url: '/sms/contacts', params: { device_id: deviceId.value, limit: 500 } })
-    contacts.value = (rows || []).map((row) => ({ ...row, key: contactKey(row) }))
+    const data = await request<SmsContact[] | Record<string, any>>({ url: '/sms/contacts', params: { device_id: deviceId.value, limit: 500 } })
+    contacts.value = rowsFrom<SmsContact>(data, ['contacts', 'items', 'data'])
+      .map((row) => ({ ...row, key: contactKey(row) }))
+      .sort((a, b) => toEpoch(contactTimestamp(b)) - toEpoch(contactTimestamp(a)))
     if (!keep || !contacts.value.some((row) => row.key === activeKey.value)) activeKey.value = contacts.value[0]?.key || ''
-    if (activeKey.value) await loadThread()
-  } catch (reason) { message.error(apiError(reason).message) } finally { loading.value = false }
+    if (activeKey.value) await loadThread(silent)
+  } catch (reason) {
+    if (!silent) message.error(apiError(reason).message)
+  } finally {
+    contactsBusy = false
+    if (!silent) loading.value = false
+  }
 }
-async function loadThread() {
+async function loadThread(silent = false) {
   const row = current.value
   if (!row) return void (messages.value = [])
-  threadLoading.value = true
+  if (threadBusy) return
+  threadBusy = true
+  if (!silent) threadLoading.value = true
   try {
-    const data = await request<SmsMessage[]>({ url: '/sms/thread', params: { device_id: row.device_id || deviceId.value, imsi: row.imsi || '', peer: row.peer, limit: 500 } })
-    messages.value = [...(data || [])].sort((a, b) => new Date(String(a.timestamp || 0)).getTime() - new Date(String(b.timestamp || 0)).getTime())
-    localStorage.setItem(seenKey(row), String(row.last_ts || Date.now()))
+    const data = await request<SmsMessage[] | Record<string, any>>({ url: '/sms/thread', params: { device_id: row.device_id || deviceId.value, imsi: row.imsi || '', peer: row.peer, limit: 500 } })
+    messages.value = rowsFrom<SmsMessage>(data, ['messages', 'items', 'data'])
+      .sort((a, b) => toEpoch(messageTimestamp(a)) - toEpoch(messageTimestamp(b)) || Number(a.id || 0) - Number(b.id || 0))
+    localStorage.setItem(seenKey(row), String(contactTimestamp(row) || Date.now()))
     unreadVersion.value++
-  } catch (reason) { message.error(apiError(reason).message) } finally { threadLoading.value = false }
+  } catch (reason) {
+    if (!silent) message.error(apiError(reason).message)
+  } finally {
+    threadBusy = false
+    if (!silent) threadLoading.value = false
+  }
 }
 async function sendSms() {
   if (!current.value || !draft.value.trim()) return
   sending.value = true
   try {
-    await request({ method: 'POST', url: '/sms/send', data: { device_id: current.value.device_id || deviceId.value, phone: current.value.peer, message: draft.value.trim() } })
+    await request({ method: 'POST', url: '/sms/send', data: { device_id: current.value.device_id || deviceId.value, imsi: current.value.imsi || undefined, phone: current.value.peer, message: draft.value.trim() } })
     draft.value = ''
     await nextTick(); resizeComposer(); await loadThread()
+    window.setTimeout(() => loadContacts(true, true), 800)
   } catch (reason) { message.error(apiError(reason).message) } finally { sending.value = false }
 }
 function openNewSms() {
@@ -163,6 +202,7 @@ async function sendNewSms() {
     message.success('短信已提交发送')
     deviceId.value = form.device_id
     await loadContacts(false)
+    window.setTimeout(() => loadContacts(true, true), 800)
     const match = contacts.value.find((row) => row.peer === form.phone.trim() && (!row.device_id || row.device_id === form.device_id))
     if (match) openThread(match.key)
   } catch (reason) { message.error(apiError(reason).message) } finally { newSmsSending.value = false }
@@ -172,7 +212,7 @@ function resizeComposer() {
   composer.value.style.height = '44px'
   composer.value.style.height = `${Math.min(104, composer.value.scrollHeight)}px`
 }
-function openThread(key: string) { activeKey.value = key; mobileChatOpen.value = true }
+async function openThread(key: string) { activeKey.value = key; mobileChatOpen.value = true; await loadThread() }
 function selectDevice(id: string) { deviceId.value = id; mobileChatOpen.value = false; loadContacts(false) }
 function toggleSelection(key: string) {
   selected.value = selected.value.includes(key) ? selected.value.filter((item) => item !== key) : [...selected.value, key]
@@ -197,7 +237,7 @@ async function runBatch(action: 'read' | 'unread' | 'delete') {
       for (const row of chosen) await request({ method: 'DELETE', url: '/sms/thread', params: { device_id: row.device_id || deviceId.value, imsi: row.imsi || '', peer: row.peer } })
     } else {
       for (const row of chosen) {
-        action === 'read' ? localStorage.setItem(seenKey(row), String(row.last_ts || Date.now())) : localStorage.setItem(seenKey(row), 'unread')
+        action === 'read' ? localStorage.setItem(seenKey(row), String(contactTimestamp(row) || Date.now())) : localStorage.setItem(seenKey(row), 'unread')
       }
     }
     unreadVersion.value++
@@ -250,15 +290,18 @@ async function readArchive(file?: File) {
   } catch (reason) { message.error(apiError(reason).message) }
 }
 
-watch(activeKey, () => loadThread())
 onMounted(async () => {
   try {
     await loadDevices()
     const requested = String(route.query.device || '')
     if (requested && devices.value.some((row) => row.id === requested)) deviceId.value = requested
     await loadContacts(false)
+    pollTimer = window.setInterval(() => {
+      if (!document.hidden) void loadContacts(true, true)
+    }, 5000)
   } catch (reason) { message.error(apiError(reason).message) }
 })
+onBeforeUnmount(() => window.clearInterval(pollTimer))
 </script>
 
 <template>
@@ -274,10 +317,10 @@ onMounted(async () => {
       </aside>
       <aside class="thread-pane" :class="{ selecting }">
         <div class="thread-tools"><button class="select-toggle" :class="{ cancel: selecting }" @click="selecting ? leaveSelection() : selecting = true">{{ selecting ? '取消选择' : '选择' }}</button><a-input v-model:value="search" class="pill-search" placeholder="搜索会话" allow-clear /></div>
-        <a-spin :spinning="loading"><EmptyState v-if="!filtered.length" title="暂无短信会话" icon="message-2-line" /><div v-else class="thread-list"><div v-for="row in filtered" :key="row.key" class="thread-row" :class="{ active: activeKey === row.key }" role="button" tabindex="0" @click="selecting ? toggleSelection(row.key) : openThread(row.key)" @keydown.enter="selecting ? toggleSelection(row.key) : openThread(row.key)"><span class="thread-leading" :class="{ 'selection-visible': selecting }"><span v-if="selecting" class="select-dot" :class="{ checked: selected.includes(row.key) }"><RiIcon v-if="selected.includes(row.key)" name="check-line" :size="12" /></span></span><span class="thread-copy"><strong>{{ row.peer }}</strong><small>{{ row.last_content || '暂无内容' }}</small></span><time class="thread-time"><span>{{ dateParts(row.last_ts).date }}</span><span>{{ dateParts(row.last_ts).time }}</span></time><span v-if="!selecting && isUnread(row)" class="unread-dot" title="未读消息" /><button v-if="!selecting" class="thread-delete" :aria-label="`删除与 ${row.peer} 的会话`" title="删除会话" @click.stop="confirmDeleteThread(row)"><RiIcon name="delete-bin-line" :size="17" /></button></div></div></a-spin>
+        <a-spin :spinning="loading"><EmptyState v-if="!filtered.length" title="暂无短信会话" icon="message-2-line" /><div v-else class="thread-list"><div v-for="row in filtered" :key="row.key" class="thread-row" :class="{ active: activeKey === row.key }" role="button" tabindex="0" @click="selecting ? toggleSelection(row.key) : openThread(row.key)" @keydown.enter="selecting ? toggleSelection(row.key) : openThread(row.key)"><span class="thread-leading" :class="{ 'selection-visible': selecting }"><span v-if="selecting" class="select-dot" :class="{ checked: selected.includes(row.key) }"><RiIcon v-if="selected.includes(row.key)" name="check-line" :size="12" /></span></span><span class="thread-copy"><strong>{{ row.peer }}</strong><small>{{ row.last_content || '暂无内容' }}</small></span><time class="thread-time"><span>{{ dateParts(contactTimestamp(row)).date }}</span><span>{{ dateParts(contactTimestamp(row)).time }}</span></time><span v-if="!selecting && isUnread(row)" class="unread-dot" title="未读消息" /><button v-if="!selecting" class="thread-delete" :aria-label="`删除与 ${row.peer} 的会话`" title="删除会话" @click.stop="confirmDeleteThread(row)"><RiIcon name="delete-bin-line" :size="17" /></button></div></div></a-spin>
         <div v-if="selecting" class="selection-dock"><button :disabled="!selected.length" @click="confirmBatch('read')">标记已读</button><button :disabled="!selected.length" @click="confirmBatch('unread')">标记未读</button><button class="danger" :disabled="!selected.length" @click="confirmBatch('delete')">删除</button></div>
       </aside>
-      <main class="chat-pane"><template v-if="current"><header class="chat-header"><button class="mobile-back" aria-label="返回会话" @click="mobileChatOpen = false"><RiIcon name="arrow-left-line" /></button><div><strong>{{ current.peer }}</strong><small>本机：{{ current.local_phone || phoneOf(devices.find(row => row.id === current?.device_id)) || '号码未知' }}</small></div><span>最新</span></header><div class="message-list"><a-spin :spinning="threadLoading"><div v-for="row in messages" :key="row.id" class="message-line" :class="{ outgoing: isOutgoing(row) }"><div class="message-bubble"><span>{{ messageContent(row) }}</span><small class="message-meta"><time>{{ displayTime(row.timestamp) }}</time><em v-if="isOutgoing(row)" :class="messageStatus(row).class">{{ messageStatus(row).label }}</em></small></div></div></a-spin></div><form class="composer" @submit.prevent="sendSms"><small class="sms-metrics">{{ smsMetrics.encoding }} · 预计 {{ smsMetrics.segments }} 段 · {{ smsMetrics.chars }} 字</small><div class="composer-row"><textarea ref="composer" v-model="draft" rows="1" maxlength="2000" placeholder="回复（Enter 发送）" @input="resizeComposer" /><a-button type="primary" html-type="submit" :loading="sending" :disabled="!draft.trim()">发送</a-button></div></form></template><EmptyState v-else title="选择一个会话" description="从左侧会话列表查看或发送短信" icon="chat-voice-line" /></main>
+      <main class="chat-pane"><template v-if="current"><header class="chat-header"><button class="mobile-back" aria-label="返回会话" @click="mobileChatOpen = false"><RiIcon name="arrow-left-line" /></button><div><strong>{{ current.peer }}</strong><small>本机：{{ current.local_phone || phoneOf(devices.find(row => row.id === current?.device_id)) || '号码未知' }}</small></div><span>最新</span></header><div class="message-list"><a-spin :spinning="threadLoading"><div v-for="row in messages" :key="row.id" class="message-line" :class="{ outgoing: isOutgoing(row) }"><div class="message-bubble"><span>{{ messageContent(row) }}</span><small class="message-meta"><time>{{ displayTime(messageTimestamp(row)) }}</time><em v-if="isOutgoing(row)" :class="messageStatus(row).class">{{ messageStatus(row).label }}</em></small></div></div></a-spin></div><form class="composer" @submit.prevent="sendSms"><small class="sms-metrics">{{ smsMetrics.encoding }} · 预计 {{ smsMetrics.segments }} 段 · {{ smsMetrics.chars }} 字</small><div class="composer-row"><textarea ref="composer" v-model="draft" rows="1" maxlength="2000" placeholder="回复（Enter 发送）" @input="resizeComposer" /><a-button type="primary" html-type="submit" :loading="sending" :disabled="!draft.trim()">发送</a-button></div></form></template><EmptyState v-else title="选择一个会话" description="从左侧会话列表查看或发送短信" icon="chat-voice-line" /></main>
     </section>
 
     <a-modal v-model:open="newSmsOpen" title="发送短信" width="min(520px, 92vw)" :confirm-loading="newSmsSending" ok-text="发送" cancel-text="取消" @ok="sendNewSms">
@@ -296,8 +339,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.sms-layout{display:grid;grid-template-columns:220px 320px minmax(320px,1fr);height:calc(100vh - 206px);min-height:560px;padding:0;overflow:hidden}.device-pane,.thread-pane{min-height:0;background:var(--vx-canvas)}.device-pane{display:flex;flex-direction:column;gap:5px;padding:16px;border-right:1px solid var(--vx-line)}.pane-label{margin-bottom:6px;color:var(--vx-muted);font-size:12px}.device-row{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:0;border-radius:16px;background:transparent;text-align:left;cursor:pointer}.device-row:hover{background:var(--vx-neutral)}.device-row.active{background:var(--vx-soft)}.device-row>span{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px}.device-row strong,.device-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.device-row small{color:var(--vx-muted);font-size:11px}.device-row i{width:7px;height:7px;min-width:7px;flex:0 0 7px;aspect-ratio:1;border-radius:50%;background:#a4a69f}.device-row i.online{background:#61bd32}.thread-pane{position:relative;display:flex;flex-direction:column;padding:16px;border-right:1px solid var(--vx-line)}.thread-tools{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px}.select-toggle{height:36px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--vx-ink);font-size:13px;font-weight:700;cursor:pointer}.select-toggle:hover{background:var(--vx-neutral)}.select-toggle.cancel{color:var(--vx-danger)}.thread-list{margin:12px -4px 0;overflow:auto}.thread-row{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;padding:12px;border:0;border-radius:18px;background:transparent;text-align:left;cursor:pointer}.thread-row:hover{background:var(--vx-neutral)}.thread-row.active{background:var(--vx-soft)}.thread-leading{display:grid;width:0;min-width:0;margin-right:0;overflow:hidden;place-items:center;transition:width .18s ease,margin-right .18s ease}.thread-leading.selection-visible{width:18px;margin-right:9px}.unread-dot{width:8px;height:8px;margin-left:9px;border-radius:50%;background:#50a41d;box-shadow:0 0 0 3px color-mix(in srgb,#50a41d 14%,transparent)}.thread-copy{display:flex;min-width:0;flex-direction:column;gap:4px}.thread-copy strong,.thread-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.thread-copy small,.thread-row time{color:var(--vx-muted);font-size:11px}.thread-time{display:flex;align-items:flex-end;flex-direction:column;margin-left:9px;line-height:1.35;text-align:right;white-space:nowrap;transition:transform .18s ease}.thread-delete{display:grid;width:0;height:32px;margin-left:0;overflow:hidden;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:var(--vx-danger);opacity:0;transform:translateX(8px);cursor:pointer;transition:width .18s ease,margin-left .18s ease,opacity .15s ease,transform .18s ease,background .15s ease}.thread-row:hover .thread-delete,.thread-delete:focus-visible{width:32px;margin-left:9px;opacity:1;transform:translateX(0)}.thread-delete:hover{background:var(--vx-danger-bg)}.select-dot{display:grid;width:18px;height:18px;min-width:18px;place-items:center;border:1px solid var(--vx-muted);border-radius:50%}.select-dot.checked{border-color:#50a41d;background:#50a41d;color:#fff}.selection-dock{position:absolute;right:0;bottom:0;left:0;display:flex;justify-content:center;gap:16px;padding:44px 12px 16px;background:linear-gradient(transparent,var(--vx-canvas) 42%)}.selection-dock button{padding:8px 12px;border:0;border-radius:999px;background:transparent;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s ease}.selection-dock button:hover:not(:disabled){background:var(--vx-neutral)}.selection-dock button.danger:hover:not(:disabled){background:var(--vx-danger-bg)}.selection-dock button:disabled{opacity:.35}.chat-pane{display:flex;min-width:0;min-height:0;flex-direction:column;background:var(--vx-neutral)}.chat-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--vx-canvas)}.chat-header div{display:flex;min-width:0;flex:1;flex-direction:column}.chat-header small,.chat-header>span{color:var(--vx-muted);font-size:12px}.mobile-back{display:none;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:transparent}.message-list{flex:1;padding:24px;overflow:auto}.message-line{display:flex;margin:8px 0;justify-content:flex-start}.message-line.outgoing{justify-content:flex-end}.message-bubble{display:flex;max-width:min(70%,620px);flex-direction:column;gap:5px;padding:10px 14px;border-radius:18px 18px 18px 5px;background:var(--vx-canvas);white-space:pre-wrap;overflow-wrap:anywhere}.outgoing .message-bubble{border-radius:18px 18px 5px;background:var(--vx-accent)}.message-meta{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--vx-muted);font-size:10px}.message-meta em{font-style:normal}.message-meta .success{color:#3e771b}.message-meta .failed{color:var(--vx-danger)}.message-meta .pending,.message-meta .unknown{color:var(--vx-muted)}.composer{display:flex;align-items:stretch;flex-direction:column;gap:6px;padding:14px;background:var(--vx-canvas)}.composer-row{display:flex;align-items:flex-end;gap:12px}.composer textarea{height:44px;min-height:44px;max-height:104px;flex:1;overflow:hidden;resize:none;padding:10px 16px;border:2px solid var(--vx-line);border-radius:22px;background:var(--vx-canvas);outline:0}.composer textarea:focus{border-color:var(--vx-ink)}.composer .ant-btn{height:44px;border-radius:999px}.sms-metrics{padding-left:2px;color:var(--vx-muted);font-size:10px;text-align:left}.transfer-form{display:grid;gap:16px}.transfer-form>label{display:grid;gap:7px;color:var(--vx-ink);font-weight:700}.transfer-form small{color:var(--vx-muted);font-weight:400}.archive-file input{padding:12px;border-radius:999px;background:var(--vx-neutral)}.select-all{display:flex!important;align-items:center}.transfer-list{max-height:260px;overflow:auto}.transfer-list label{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px}.transfer-list label:hover{background:var(--vx-neutral)}.transfer-list span{display:flex;min-width:0;flex-direction:column}.transfer-list strong,.transfer-list small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.new-sms-form{display:grid;gap:16px}.new-sms-form label{display:grid;gap:7px;color:var(--vx-muted);font-size:13px;font-weight:650}.new-sms-form>small{color:var(--vx-muted);font-size:12px}.new-sms-form :deep(textarea){resize:none}
+.sms-layout{display:grid;grid-template-columns:220px 320px minmax(320px,1fr);height:calc(100vh - 206px);min-height:560px;padding:0;overflow:hidden}.device-pane,.thread-pane{min-height:0;background:var(--vx-canvas)}.device-pane{display:flex;flex-direction:column;gap:5px;padding:16px;border-right:1px solid var(--vx-line)}.pane-label{margin-bottom:6px;color:var(--vx-muted);font-size:12px}.device-row{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:0;border-radius:16px;background:transparent;text-align:left;cursor:pointer}.device-row:hover{background:var(--vx-neutral)}.device-row.active{background:var(--vx-soft)}.device-row>span{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px}.device-row strong,.device-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.device-row small{color:var(--vx-muted);font-size:11px}.device-row i{width:7px;height:7px;min-width:7px;flex:0 0 7px;aspect-ratio:1;border-radius:50%;background:#a4a69f}.device-row i.online{background:#61bd32}.thread-pane{position:relative;display:flex;flex-direction:column;padding:16px;border-right:1px solid var(--vx-line)}.thread-tools{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px}.select-toggle{height:36px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--vx-ink);font-size:13px;font-weight:700;cursor:pointer}.select-toggle:hover{background:var(--vx-neutral)}.select-toggle.cancel{color:var(--vx-danger)}.thread-list{margin:12px -4px 0;overflow:auto}.thread-row{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;padding:12px;border:0;border-radius:18px;background:transparent;text-align:left;cursor:pointer}.thread-row:hover{background:var(--vx-neutral)}.thread-row.active{background:var(--vx-soft)}.thread-leading{display:grid;width:0;min-width:0;margin-right:0;overflow:hidden;place-items:center;transition:width .18s ease,margin-right .18s ease}.thread-leading.selection-visible{width:18px;margin-right:9px}.unread-dot{width:8px;height:8px;margin-left:9px;border-radius:50%;background:#50a41d;box-shadow:0 0 0 3px color-mix(in srgb,#50a41d 14%,transparent)}.thread-copy{display:flex;min-width:0;flex-direction:column;gap:4px}.thread-copy strong,.thread-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.thread-copy small,.thread-row time{color:var(--vx-muted);font-size:11px}.thread-time{display:flex;align-items:flex-end;flex-direction:column;margin-left:9px;line-height:1.35;text-align:right;white-space:nowrap;transition:transform .18s ease}.thread-delete{display:grid;width:0;height:32px;margin-left:0;overflow:hidden;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:var(--vx-danger);opacity:0;transform:translateX(8px);cursor:pointer;transition:width .18s ease,margin-left .18s ease,opacity .15s ease,transform .18s ease,background .15s ease}.thread-row:hover .thread-delete,.thread-delete:focus-visible{width:32px;margin-left:9px;opacity:1;transform:translateX(0)}.thread-delete:hover{background:var(--vx-danger-bg)}.select-dot{display:grid;width:18px;height:18px;min-width:18px;place-items:center;border:1px solid var(--vx-muted);border-radius:50%}.select-dot.checked{border-color:#50a41d;background:#50a41d;color:#fff}.selection-dock{position:absolute;right:0;bottom:0;left:0;display:flex;justify-content:center;gap:16px;padding:44px 12px 16px;background:linear-gradient(transparent,var(--vx-canvas) 42%)}.selection-dock button{padding:8px 12px;border:0;border-radius:999px;background:transparent;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s ease}.selection-dock button:hover:not(:disabled){background:var(--vx-neutral)}.selection-dock button.danger:hover:not(:disabled){background:var(--vx-danger-bg)}.selection-dock button:disabled{opacity:.35}.chat-pane{display:flex;min-width:0;min-height:0;flex-direction:column;background:var(--vx-neutral)}.chat-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--vx-canvas)}.chat-header div{display:flex;min-width:0;flex:1;flex-direction:column}.chat-header small,.chat-header>span{color:var(--vx-muted);font-size:12px}.mobile-back{display:none;width:34px;height:34px;place-items:center;border:0;border-radius:50%;background:transparent}.message-list{flex:1;padding:24px;overflow:auto}.message-line{display:flex;margin:8px 0;justify-content:flex-start}.message-line.outgoing{justify-content:flex-end}.message-bubble{display:flex;max-width:min(70%,620px);flex-direction:column;gap:5px;padding:10px 14px;border-radius:18px 18px 18px 5px;background:var(--vx-canvas);font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}.outgoing .message-bubble{border-radius:18px 18px 5px;background:var(--vx-accent)}.message-meta{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--vx-muted);font-size:10px}.message-meta em{font-style:normal}.message-meta .success{color:#3e771b}.message-meta .failed{color:var(--vx-danger)}.message-meta .pending,.message-meta .unknown{color:var(--vx-muted)}.composer{display:flex;align-items:stretch;flex-direction:column;gap:6px;padding:14px;background:var(--vx-canvas)}.composer-row{display:flex;align-items:flex-end;gap:12px}.composer textarea{height:44px;min-height:44px;max-height:104px;flex:1;overflow:hidden;resize:none;padding:10px 16px;border:2px solid var(--vx-line);border-radius:22px;background:var(--vx-canvas);font-size:14px;line-height:1.5;outline:0}.composer textarea:focus{border-color:var(--vx-ink)}.composer .ant-btn{height:44px;border-radius:999px}.sms-metrics{padding-left:2px;color:var(--vx-muted);font-size:10px;text-align:left}.transfer-form{display:grid;gap:16px}.transfer-form>label{display:grid;gap:7px;color:var(--vx-ink);font-weight:700}.transfer-form small{color:var(--vx-muted);font-weight:400}.archive-file input{padding:12px;border-radius:999px;background:var(--vx-neutral)}.select-all{display:flex!important;align-items:center}.transfer-list{max-height:260px;overflow:auto}.transfer-list label{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px}.transfer-list label:hover{background:var(--vx-neutral)}.transfer-list span{display:flex;min-width:0;flex-direction:column}.transfer-list strong,.transfer-list small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.new-sms-form{display:grid;gap:16px}.new-sms-form label{display:grid;gap:7px;color:var(--vx-muted);font-size:13px;font-weight:650}.new-sms-form>small{color:var(--vx-muted);font-size:12px}.new-sms-form :deep(textarea){font-size:14px;line-height:1.5;resize:none}
 @media(max-width:1200px){.sms-layout{grid-template-columns:170px 240px minmax(280px,1fr)}}
 @media(max-width:1024px){.sms-layout{display:block;height:calc(100vh - 190px);min-height:540px}.device-pane{display:none}.thread-pane{height:100%;border:0}.chat-pane{display:none;height:100%;min-height:0}.sms-layout.mobile-chat-open .thread-pane{display:none}.sms-layout.mobile-chat-open .chat-pane{display:flex}.mobile-back{display:grid}.message-bubble{max-width:86%}}
 </style>

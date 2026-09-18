@@ -213,3 +213,64 @@ func TestSMSContactsAllFansOutByDevice(t *testing.T) {
 		t.Fatalf("device metadata was not attached: %#v", contacts)
 	}
 }
+
+func TestMergeOpenAPIAddsGatewayAndLegacyPaths(t *testing.T) {
+	spec := map[string]any{
+		"openapi": "3.0.3",
+		"info":    map[string]any{"title": "Core API", "version": "test"},
+		"paths": map[string]any{
+			"/devices": map[string]any{"get": map[string]any{"summary": "Core devices"}},
+			"/cards/{iccid}/policy": map[string]any{
+				"get": map[string]any{"summary": "Keep the upstream definition"},
+			},
+		},
+	}
+	if err := mergeOpenAPI(spec); err != nil {
+		t.Fatal(err)
+	}
+	paths := spec["paths"].(map[string]any)
+	for _, path := range []string{
+		"/cards/policies",
+		"/cards/{iccid}/policy",
+		"/devices/{device_id}/actions/ussd/continue",
+		"/devices/{device_id}/esim/profiles/{iccid}",
+		"/settings/notifications/bark/test",
+		"/settings/notifications/email/test",
+		"/schedules",
+		"/managed-proxy",
+		"/sms/archive/import",
+		"/settings/username",
+		"/settings/system",
+	} {
+		if _, found := paths[path]; !found {
+			t.Fatalf("missing merged path %s", path)
+		}
+	}
+	policy := paths["/cards/{iccid}/policy"].(map[string]any)
+	if policy["get"].(map[string]any)["summary"] != "Keep the upstream definition" {
+		t.Fatal("merge overwrote an existing upstream operation")
+	}
+	if _, found := policy["put"]; !found {
+		t.Fatal("merge did not add a missing operation to an existing path")
+	}
+}
+
+func TestMergeOpenAPIUsesAPIPrefixWhenCorePathsUseIt(t *testing.T) {
+	spec := map[string]any{
+		"openapi": "3.0.3",
+		"paths": map[string]any{
+			"/api/devices":     map[string]any{},
+			"/api/system/info": map[string]any{},
+		},
+	}
+	if err := mergeOpenAPI(spec); err != nil {
+		t.Fatal(err)
+	}
+	paths := spec["paths"].(map[string]any)
+	if _, found := paths["/api/schedules"]; !found {
+		t.Fatal("gateway path did not follow the upstream /api prefix convention")
+	}
+	if _, found := paths["/schedules"]; found {
+		t.Fatal("gateway path was added with the wrong convention")
+	}
+}

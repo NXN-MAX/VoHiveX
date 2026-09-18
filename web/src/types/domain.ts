@@ -22,6 +22,40 @@ export interface Device {
   msisdn?: string
   flight_mode?: boolean
   operating_mode?: string
+  network_enabled?: boolean
+  local_phone?: string
+  active_esim_profile_name?: string
+  backend_mode?: string
+  modem?: {
+    imei?: string
+    imsi?: string
+    iccid?: string
+    firmware?: string
+    operator?: string
+    network_mode?: string
+    network_duplex?: string
+    signal_dbm?: number
+    signal_rsrp?: number
+    signal_rsrq?: number
+    signal_sinr?: number
+    nr5g_signal_sinr?: number
+    radio_band?: string
+    radio_channel?: number | string
+    reg_status_text?: string
+    operating_mode?: number | string
+    [key: string]: unknown
+  }
+  vowifi_runtime?: {
+    sim_ready?: boolean
+    access_ready?: boolean
+    tunnel_ready?: boolean
+    ims_ready?: boolean
+    sms_ready?: boolean
+    dataplane_mode?: string
+    last_reason?: string
+    last_error_class?: string
+    [key: string]: unknown
+  }
   [key: string]: unknown
 }
 
@@ -76,8 +110,12 @@ export interface SmsContact {
   local_phone?: string
   last_content?: string
   last_ts?: number | string
+  last_timestamp?: number | string
   last_sms_id?: number
   unread?: number
+  unread_count?: number
+  is_unread?: boolean
+  read?: boolean
   [key: string]: unknown
 }
 
@@ -91,7 +129,12 @@ export interface SmsMessage {
   timestamp?: number | string
   direction?: string
   outgoing?: boolean
+  is_outgoing?: boolean
+  type?: number | string
   read?: boolean
-  status?: string
+  status?: number | string
+  delivery_status?: number | string
+  send_status?: number | string
+  delivery_state?: number | string
   [key: string]: unknown
 }

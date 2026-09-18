@@ -42,6 +42,7 @@ const theme = computed(() => ({
   },
   components: {
     Button: { borderRadius: 999, primaryShadow: 'none' },
+    Tooltip: { borderRadius: 6, controlHeight: 32 },
     Tabs: { itemActiveColor: '#163300', itemSelectedColor: '#163300', inkBarColor: 'transparent' },
     Modal: { borderRadiusLG: 24 },
     Input: { activeBorderColor: '#163300', hoverBorderColor: '#62645f' },

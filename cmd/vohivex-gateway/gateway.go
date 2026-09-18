@@ -45,6 +45,8 @@ func (app *application) routes() http.Handler {
 			app.health(w, r)
 		case path == "/metrics":
 			app.metrics(w, r)
+		case path == "/api/openapi.json" || path == "/api/openapi.yaml":
+			app.openAPISpec(w, r)
 		case path == "/api/settings/system":
 			app.systemMetadata(w, r)
 		case path == "/api/settings/username":
