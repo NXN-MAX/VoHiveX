@@ -1,57 +1,57 @@
-# 代理管理
+# Proxy Management
 
-## 导入与连接
+## Import and Connect
 
-1. 打开「代理管理 → 订阅与节点」，添加 HTTPS 订阅链接（每行一个）、节点链接或 Clash YAML，也可上传 PNG、JPG、WebP 二维码。
-2. 确认导入后展开订阅，选择节点并点击「使用」。导入本身不会启用代理。
-3. 「连接」使用上次选择的节点；「断开」关闭内置代理，关联国家规则回退为直连。
-4. 按需更新或删除订阅。删除正在使用的节点前，先断开或切换节点。
+1. Open **Proxy Management → Subscriptions and Nodes**. Add HTTPS subscription URLs, one per line, individual node URLs, or Clash YAML. PNG, JPG, and WebP QR images are also accepted.
+2. After confirming the import, expand the subscription, select a node, and click **Use**. Importing does not enable the proxy.
+3. **Connect** uses the last selected node. **Disconnect** stops the built-in proxy, and linked country rules fall back to direct connections.
+4. Update or delete subscriptions as needed. Before deleting a node in use, disconnect or select another node.
 
-订阅默认收起，节点列表支持滚动。「一键测试」逐个显示节点 HTTPS 延迟，不切换出口；停止测试会等待当前请求结束再停止后续队列。延迟徽标最多显示 999ms，悬浮可查看实际值；断开或测试失败时不显示。
+Subscriptions are collapsed by default, and node lists scroll within a fixed height. **Test all** displays each node's HTTPS latency without changing the active egress. Stopping a test waits for the current request and cancels the remaining queue. The latency badge displays at most 999 ms; hover to see the actual value. No badge is shown while disconnected or after a failed test.
 
-二维码只在浏览器解码，不上传或持久缓存图片。识别结束后清理图片数据，只有确认导入才保存识别出的订阅或节点配置。
+QR images are decoded only in the browser and are never uploaded or retained in a persistent cache. Image data is cleared after recognition. The recognized subscription or node configuration is saved only after the user confirms the import.
 
-## 漫游前置代理
+## VoWiFi Roaming Proxy
 
-- 「订阅节点 · 内置代理」固定存在，不可删除，SOCKS5 地址为 `127.0.0.1:17890`。
-- 连接或选择订阅节点会启用内置条目；在「漫游前置代理」为其添加国家规则。
-- 国家按 SIM 所属 MCC 匹配。仅启用且关联的规则走对应代理；禁用后回退直连。
-- 切换内置节点影响所有绑定国家；原有代理连接可能需要重建，VoWiFi 可能需要重新注册。
-- 手工 SOCKS5 代理可单独配置。VoWiFi 要求 UDP Associate 支持，HTTPS 延迟测试不能证明 UDP 或 IMS 注册可用。
+- **Subscription nodes · Built-in proxy** always exists and cannot be deleted. Its SOCKS5 endpoint is fixed at `127.0.0.1:17890`.
+- Connecting or selecting a subscription node enables the built-in entry. Add country rules for it under **VoWiFi roaming proxy**.
+- Countries are matched against the SIM's MCC. Only enabled and linked rules use the assigned proxy. Disabled rules fall back to a direct connection.
+- Changing the built-in node affects every linked country. Existing proxy connections may need to be rebuilt, and VoWiFi may need to register again.
+- Manual SOCKS5 proxies can be configured separately. VoWiFi requires UDP Associate support; an HTTPS latency test does not prove that UDP or IMS registration works.
 
-## 本地出站代理
+## Local Outbound Proxy
 
-新增实例默认关闭。填写绑定设备、监听地址、端口及认证信息后保存，再从列表开关启用。关闭开关会停止实例；启动失败时查看返回错误和日志。
+New instances are disabled by default. Enter the bound device, listening address, port, and credentials, save the instance, and then enable it from the list. Disabling the switch stops the instance. Review the returned error and logs when startup fails.
 
-## IP 地址
+## IP Addresses
 
-- 设备卡片不使用 VoWiFi 时，仅显示 SIM 获取的 IP，不使用主机公网 IP 代替。
-- 使用 VoWiFi 时，按启用的国家规则与代理配置判断出口；无法确定时显示不可用。
-- 「设备公网IP」查询默认非蜂窝网络出口；「订阅代理出口 IP」仅通过内置 SOCKS5 查询，失败不回退直连。
-- 界面支持 IPv6 文本，过长时省略；卡片悬浮查看完整地址，代理页面点击 IP 复制。
-- 当前外部探测服务为 `api.ipify.org`，失败时尝试 `ipv4.icanhazip.com`，查询结果仅接受公网 IPv4。IPv6 文本展示不表示已实现公网 IPv6 探测。
-- 查询不携带订阅、SIM 或短信数据；结果缓存 60 秒，手动刷新限频 5 秒。
+- When VoWiFi is not in use, a device card displays only the IP obtained by the SIM. It does not substitute the host's public IP.
+- When VoWiFi is active, egress is determined from enabled country rules and proxy configuration. The UI reports unavailable when it cannot determine the egress.
+- **Device public IP** uses the default non-cellular egress. **Subscription proxy egress IP** queries only through the built-in SOCKS5 proxy and never falls back to a direct connection.
+- The interface can display IPv6 text. Long values are truncated; hover over a device-card value to see it in full, or click an IP on the proxy page to copy it.
+- External discovery currently uses `api.ipify.org` and falls back to `ipv4.icanhazip.com`. Only public IPv4 responses are accepted. IPv6 text support in the interface does not mean that public IPv6 discovery is implemented.
+- Queries contain no subscription, SIM, or SMS data. Results are cached for 60 seconds, and manual refresh is rate-limited to once every 5 seconds.
 
-## 参数与存储
+## Limits and Storage
 
-| 项目 | 值 |
+| Item | Value |
 | --- | --- |
 | SOCKS5 | `127.0.0.1:17890` |
-| 控制接口 | `127.0.0.1:17891`，使用随机密钥 |
-| 持久化目录 | `data/managed-proxy/` |
-| 来源数 | 最多 20 个 |
-| 节点数 | 单个来源及全部来源合计均不超过 1000 个 |
-| 订阅下载 | HTTPS，最多 4 MB，拒绝内网和保留地址 |
-| 延迟测试目标 | `https://www.gstatic.com/generate_204` |
+| Control API | `127.0.0.1:17891`, protected by a random secret |
+| Persistent directory | `data/managed-proxy/` |
+| Sources | Up to 20 |
+| Nodes | Up to 1,000 per source and 1,000 total |
+| Subscription download | HTTPS, up to 4 MB; private and reserved addresses are rejected |
+| Latency target | `https://www.gstatic.com/generate_204` |
 
-支持 Clash YAML、Base64 及常见节点 URI，包括 VMess、VLESS、AnyTLS、Trojan、Shadowsocks、Hysteria2、TUIC、SOCKS5；不支持 Shadowsocks 外部插件。导入前校验核心配置，失败不应用。
+Supported inputs include Clash YAML, Base64 subscriptions, and common node URIs for VMess, VLESS, AnyTLS, Trojan, Shadowsocks, Hysteria2, TUIC, and SOCKS5. External Shadowsocks plugins are not supported. Core configuration is validated before import, and an invalid configuration is not applied.
 
-不导入订阅中的 TUN、DNS、路由规则、外部控制接口或规则下载配置。订阅域名须解析到真实公网地址。订阅和节点密钥存于权限为 0600 的配置文件中，不应放入镜像或公共部署包。更新、导入及切换时重载核心，失败会尝试恢复原配置。
+TUN, DNS, routing rules, external controllers, and rule-download settings from a subscription are not imported. Subscription hostnames must resolve to genuine public addresses. Subscription and node secrets are stored in configuration files with mode 0600 and must never be added to images or public deployment packages. Updates, imports, and node changes reload the core; a failed reload attempts to restore the previous configuration.
 
 ## API
 
-- `GET /api/managed-proxy`：状态、来源、脱敏节点及版本号。
-- `POST /api/managed-proxy/{import,refresh,delete,select,pause,attach,test}`：管理操作，写操作携带当前 `version`，测试使用 `node_id`。
-- `GET /api/managed-proxy/public-ip`：出口 IP；`?refresh=1` 手动刷新。
+- `GET /api/managed-proxy`: status, sources, redacted nodes, and version.
+- `POST /api/managed-proxy/{import,refresh,delete,select,pause,attach,test}`: management operations. Write operations include the current `version`; tests use `node_id`.
+- `GET /api/managed-proxy/public-ip`: egress IP; add `?refresh=1` for manual refresh.
 
-接口沿用登录鉴权。第三方许可见 [THIRD-PARTY.md](THIRD-PARTY.md)。
+The API uses the existing login authentication. See [THIRD-PARTY.md](THIRD-PARTY.md) for third-party licenses.

@@ -1,22 +1,22 @@
-# API 文档
+# API Documentation
 
-## 使用
+## Use
 
-1. 登录管理界面。
-2. 打开「系统设置 → 系统信息 → 查看本机接口说明」，或访问 `/api/docs`。
-3. 按接口分组查看请求、响应和 Schema；需要调试时使用 Authorize 与 Try it out。
+1. Sign in to the management interface.
+2. Open **System Settings → System Information → View local API documentation**, or visit `/api/docs`.
+3. Browse requests, responses, and schemas by API group. Use **Authorize** and **Try it out** for testing.
 
-规格地址为 `/api/openapi.json`，需要 Bearer 鉴权。登录过期后应重新登录。请求仅允许当前同源服务，不使用在线规格校验或 URL 配置覆盖。
+The specification is available at `/api/openapi.json` and requires Bearer authentication. Sign in again after the session expires. Requests are restricted to the current same-origin service; online specification validation and URL-based configuration overrides are disabled.
 
-## 维护
+## Maintenance
 
-- 页面：`app/docs/index.html`。
-- Swagger UI：`app/docs/vendor/swagger-ui-5.32.15/`。
-- 资源完整性记录：同目录的 `manifest.json`。
-- 后台源码与主题：`web/src/`。
+- Page: `app/docs/index.html`.
+- Swagger UI: `app/docs/vendor/swagger-ui-5.32.15/`.
+- Asset integrity manifest: `manifest.json` in the same directory.
+- Management frontend source and theme: `web/src/`.
 
 ```sh
 python3 app/scheduler/build-assets.py
 ```
 
-修改源码后重新生成前端并构建镜像。资源由本机提供，许可证、NOTICE 和完整性记录必须随资源一并打包。
+Regenerate the frontend and rebuild the image after source changes. Assets are served locally, and the licenses, NOTICE files, and integrity manifests must be distributed with them.

@@ -13,6 +13,8 @@
 
 # VoHiveX
 
+English | [العربية](docs/README.ar.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [Français](docs/README.fr.md) | [Русский](docs/README.ru.md) | [Español](docs/README.es.md) | [日本語](docs/README.ja.md)
+
 **Original project:** [VoHive](https://github.com/iniwex5/vohive) by [iniwex5](https://github.com/iniwex5)<br>
 **VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version:** 2.1.4
 

@@ -55,6 +55,13 @@ deployment/
 
 # Documentation: publish only the reviewed example screenshots
 docs/*
+!docs/README.ar.md
+!docs/README.zh-CN.md
+!docs/README.zh-TW.md
+!docs/README.fr.md
+!docs/README.ru.md
+!docs/README.es.md
+!docs/README.ja.md
 !docs/images/
 docs/images/*
 !docs/images/vohivex-banner.png

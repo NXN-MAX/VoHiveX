@@ -1,22 +1,22 @@
-# VoHiveX 部署
+# VoHiveX Deployment
 
-支持 Linux AMD64、ARM64/AArch64、ARMv7。推荐直接拉取 `ghcr.io/nxn-max/vohivex:2.1.4`；Docker 自动选择对应架构。另提供 386 Go 网关二进制，但不包含 386 调制解调器核心。
+VoHiveX supports Linux AMD64, ARM64/AArch64, and ARMv7. Pulling `ghcr.io/nxn-max/vohivex:2.1.4` is recommended; Docker selects the matching architecture automatically. A standalone 386 Go gateway binary is also available, but it does not include a 386 modem core.
 
-## 默认访问
+## Default Access
 
-- 网页端口：`7575`（容器端口也为 `7575`）。
-- 默认账号：`admin`。
-- 默认密码：`admin`。
+- Web port: `7575` (the container also listens on `7575`).
+- Default username: `admin`.
+- Default password: `admin`.
 
-只在配置不存在时创建默认账号密码，已有配置不会重置。首次登录后修改密码。
+The default credentials are created only when no configuration exists. Existing credentials are not reset. Change the password after the first login.
 
-## 拉取与启动
+## Pull and Start
 
-1. 宿主机应已提供与当前内核匹配的 `option`、`qmi_wwan` 及依赖模块，并已安装 Docker Compose。
-2. 将 `docker-compose.yml` 与 `.env.example` 放在同一目录，复制 `.env.example` 为 `.env`。
-3. 内核版本自动识别，无需手动配置。未加载的驱动从当前内核对应目录加载；目录缺失或加载失败时停止初始化并记录错误。
-4. 设置 `VOHIVE_BIND_IP`。默认 `127.0.0.1` 仅允许本机访问，局域网访问需填写主机的局域网地址。
-5. 执行：
+1. The host must already provide `option`, `qmi_wwan`, and their dependencies for the running kernel, as well as Docker Compose.
+2. Put `docker-compose.yml` and `.env.example` in the same directory, then copy `.env.example` to `.env`.
+3. The kernel version is detected automatically. Drivers that are not already loaded are loaded from the matching directory for the running kernel. Initialization stops and records an error if that directory is missing or loading fails.
+4. Set `VOHIVE_BIND_IP`. The default, `127.0.0.1`, permits local access only. For LAN access, use the host's LAN address.
+5. Run:
 
 ```sh
 docker compose config --quiet
@@ -24,16 +24,16 @@ docker compose pull
 docker compose up -d
 ```
 
-访问 `http://<主机地址>:7575`。初始化自动生成最小配置，无需手动准备账号密码。
+Open `http://<host-address>:7575`. Initialization creates the minimum required configuration automatically; credentials do not need to be prepared manually.
 
-## 更新与数据
+## Updates and Data
 
-更新前停止容器并备份 `.env`、`config`、`data`、`logs`、`driver-state` 及部署配置。更新不覆盖用户数据。旧配置只将核心服务端口迁移为 `127.0.0.1:7576`，账号密码和其他设置保留；旧 Compose 的网页映射及健康检查需要同步改为容器端口 `7575`。
+Before updating, stop the container and back up `.env`, `config`, `data`, `logs`, `driver-state`, and the deployment configuration. Updates do not overwrite user data. Legacy configurations only migrate the core service port to `127.0.0.1:7576`; credentials and all other settings are preserved. Update the web port mapping and health check in an older Compose file to use container port `7575`.
 
-## 从源码或部署包构建
+## Build from Source or a Deployment Package
 
-源码构建机需要 Go 1.24+、Python 3、Node.js/npm、UPX；运行 `python3 app/prepare-build.py` 后执行 `docker build -t vohivex:2.1.4 .`。完整部署包已包含三种架构程序与生成的前端，可直接构建，无需在部署主机安装前端依赖。
+A source build machine requires Go 1.24+, Python 3, Node.js/npm, and UPX. Run `python3 app/prepare-build.py`, then `docker build -t vohivex:2.1.4 .`. The complete deployment package already contains programs for all three architectures and the generated frontend, so no frontend dependencies are required on the deployment host.
 
-发布包附带 `SHA256SUMS`，解压后先执行 `sha256sum -c SHA256SUMS`。`python3 app/package-single.py` 生成 `dist/VoHiveX-deploy.zip` 与包含构建源码的 `dist/VoHiveX-single.zip`。
+Release packages include `SHA256SUMS`. After extraction, run `sha256sum -c SHA256SUMS` before use. `python3 app/package-single.py` creates `dist/VoHiveX-deploy.zip` and `dist/VoHiveX-single.zip`, the latter of which also includes the build source.
 
-Compose 默认从 GHCR 拉取已发布镜像。本地构建镜像如需用于部署，应将 Compose 的 `image` 改为本地标签，并将 `pull_policy` 改为 `never`。
+Compose pulls the published GHCR image by default. To deploy a locally built image, change the Compose `image` value to the local tag and set `pull_policy` to `never`.

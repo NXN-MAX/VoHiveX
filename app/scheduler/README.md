@@ -1,58 +1,58 @@
-# 定时短信
+# Scheduled SMS
 
-2.1.0 起，定时任务、短信归档、推送队列及反向代理均由 `cmd/vohivex-gateway` 下的 Go 服务实现；前端源码位于 `web/`，此目录仅保留资源构建脚本与模块说明。
+Since version 2.1.0, the Go service under `cmd/vohivex-gateway` implements scheduled tasks, the SMS archive, the notification queue, and reverse proxying. Frontend source is under `web/`; this directory contains only asset build scripts and module documentation.
 
-## 使用步骤
+## Use
 
-1. 打开「定时任务」，新增任务并填写名称、发信设备、一个收信号码和短信内容。
-2. 选择指定时间发送一次，或按天、小时、分钟、秒设置重复间隔。
-3. 设置首次执行时间，使用北京时间（UTC+8），可精确到秒。
-4. 保存后任务处于暂停状态，点击「开始」启用并显示下次执行时间。
-5. 需要时暂停、修改、删除任务或查看执行记录。修改后需重新开始；已完成的单次任务需先修改执行时间。
+1. Open **Scheduled Tasks**, create a task, and enter its name, sending device, one recipient number, and message.
+2. Choose either a single specified time or a repeating interval in days, hours, minutes, and seconds.
+3. Set the first execution time in China Standard Time (UTC+8), with second-level precision.
+4. A saved task is paused. Click **Start** to enable it and display the next execution time.
+5. Pause, edit, delete, or review task history when needed. An edited task must be started again. For a completed one-time task, change its execution time before restarting it.
 
-## 执行规则
+## Execution Rules
 
-- 重复时间以首次时间为基准；停机或延迟超过 60 秒的执行不补发。单次任务过期后暂停，重复任务跳至下一个未来时间。
-- 发送失败、结果不确定或重启前执行中断时自动暂停，不自动重发。
-- 暂停不能撤回已经提交的短信。设备离线或未启用短信时，不改用其他设备。
-- 最多 1000 个任务；每个任务保留最近 100 条结果，界面显示最近 20 条。
-- 长短信可能分段计费；实际发送时间受设备、队列和运营商响应影响。
-- 删除任务会删除其执行记录，保留短信中心已有消息。
+- Repeating schedules use the first execution time as their baseline. Executions delayed by more than 60 seconds because of shutdown or another delay are skipped. An expired one-time task is paused; a repeating task advances to the next future time.
+- A task pauses automatically when sending fails, the result is uncertain, or execution was interrupted before a restart. It is never retried automatically.
+- Pausing cannot recall a message already submitted. If the selected device is offline or SMS is unavailable, another device is not substituted.
+- The system supports up to 1,000 tasks. It retains the latest 100 results per task and displays the latest 20 in the interface.
+- Long messages may be billed as multiple segments. Actual sending time depends on the device, queue, and carrier response.
+- Deleting a task also deletes its execution history but preserves messages already present in the SMS center.
 
-## 消息推送
+## Notifications
 
-在「消息推送」配置并启用接收渠道。每次实际执行结束后，发送任务名、设备名称、收信号码、内容、时间及状态。未执行的过期任务不发送完成通知。
+Configure and enable delivery channels under **Notifications**. After every actual execution, VoHiveX sends the task name, device name, recipient number, content, time, and status. No completion notification is sent for an expired task that did not run.
 
-首次通知表示发送请求的执行结果；后续状态通知按以下规则判断：
+The first notification reports the sending request result. Later delivery-state notifications follow these rules:
 
-- 有 `message_id`：只读查询 `/api/sms/delivery/{message_id}`，核对消息和设备 ID。`state=acked` 且 `acks>=parts_total>0` 表示全部分段得到确认；`failed` 表示明确失败。
-- 无 `message_id`：仅在发送接口明确返回 `delivery_state=acked` 时确认接口发送成功。
-- 无明确状态、网络请求结果不确定或超时均记为未知。每 15 秒查询，最长等待 24 小时。
-- 网络或接口确认不代表收件人已收到或已阅读，不据此自动重发。
+- With a `message_id`, VoHiveX performs read-only queries to `/api/sms/delivery/{message_id}` and verifies both message and device IDs. `state=acked` with `acks>=parts_total>0` means that all segments were acknowledged; `failed` means an explicit failure.
+- Without a `message_id`, success is confirmed only when the send API explicitly returns `delivery_state=acked`.
+- Missing explicit state, uncertain network results, and timeouts are recorded as unknown. Status is checked every 15 seconds for up to 24 hours.
+- Network or API confirmation does not prove that the recipient received or read the message, and never triggers an automatic resend.
 
-推送使用当前已启用渠道，独立处理，不阻塞任务。推送失败不改变短信状态，也不触发短信重发。
+Enabled channels are processed independently and do not block the task. A notification failure does not change SMS status or trigger an SMS resend.
 
-## 数据与接口
+## Data and API
 
-任务、结果和推送队列保存在 `data/scheduled-sms.sqlite3`，应与配置一并备份。重启后继续处理等待中的状态查询；推送中断记为未知，不自动重复发送。
+Tasks, results, and the notification queue are stored in `data/scheduled-sms.sqlite3` and should be backed up with the configuration. Pending delivery-state checks continue after restart. An interrupted notification is recorded as unknown and is not sent again automatically.
 
-管理接口使用 `Authorization: Bearer <token>`：
+Management endpoints use `Authorization: Bearer <token>`:
 
-| 方法 | 路径 | 用途 |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/schedules` | 任务列表及服务器时间 |
-| GET | `/api/schedules/devices` | 可用发信设备 |
-| POST | `/api/schedules` | 创建暂停任务 |
-| PUT | `/api/schedules/{id}` | 修改并暂停 |
-| DELETE | `/api/schedules/{id}` | 删除任务 |
-| POST | `/api/schedules/{id}/start` | 开始 |
-| POST | `/api/schedules/{id}/pause` | 暂停 |
-| GET | `/api/schedules/{id}/history` | 最近执行记录 |
+| GET | `/api/schedules` | Tasks and server time |
+| GET | `/api/schedules/devices` | Available sending devices |
+| POST | `/api/schedules` | Create a paused task |
+| PUT | `/api/schedules/{id}` | Update and pause a task |
+| DELETE | `/api/schedules/{id}` | Delete a task |
+| POST | `/api/schedules/{id}/start` | Start a task |
+| POST | `/api/schedules/{id}/pause` | Pause a task |
+| GET | `/api/schedules/{id}/history` | Recent execution history |
 
-创建和修改字段为 `name`、`device_id`、`phone`、`message`、`mode`（`once` 或 `interval`）、`first_run`（Unix 秒）、`interval_seconds`。修改、删除、开始和暂停需要当前 `version`，避免覆盖其他页面操作。
+Create and update requests use `name`, `device_id`, `phone`, `message`, `mode` (`once` or `interval`), `first_run` (Unix seconds), and `interval_seconds`. Update, delete, start, and pause operations require the current `version` to avoid overwriting changes from another page.
 
-Webhook 首次事件为 `scheduled_sms.completed`，最终状态事件为 `scheduled_sms.delivery`（`phase=delivery`），使用相同 `run_id`。提供设备、号码、消息、时间、状态和详情字段；最终事件的 `finished_at` 为确认时间，`execution_finished_at` 为原执行结束时间。沿用自定义请求头及 `X-Vohive-Signature` 签名，完整结果位于 `text`。
+The initial webhook event is `scheduled_sms.completed`; the final delivery-state event is `scheduled_sms.delivery` with `phase=delivery`. Both use the same `run_id` and include device, number, message, time, status, and detail fields. For the final event, `finished_at` is the confirmation time and `execution_finished_at` is the original execution completion time. Custom headers and the `X-Vohive-Signature` signature remain supported, and the complete result is provided in `text`.
 
-## 资源构建
+## Asset Build
 
-从项目根目录执行 `python3 app/scheduler/build-assets.py`；环境准备及部署步骤见[构建与部署](../README.md)。
+Run `python3 app/scheduler/build-assets.py` from the repository root. See [Build and Deployment](../README.md) for environment preparation and deployment steps.

@@ -1,19 +1,19 @@
-# 品牌资源
+# Brand Assets
 
-| 资源 | 规格 |
+| Asset | Specification |
 | --- | --- |
-| VoHiveX 字标 | Jost 800 Italic，X 为 `#9FE870` |
-| 网页图标 | `#9FE870` 圆角方形底，黑色 VoX |
+| VoHiveX wordmark | Jost 800 Italic with the X in `#9FE870` |
+| Web icon | Black VoX on a `#9FE870` rounded-square background |
 | `vohivex-logo.png` | 1024 × 1024 |
 | `vohivex-icon.png` | 512 × 512 |
 | `vohivex-favicon.ico` | 16 / 24 / 32 / 48 / 64 / 128 / 256 px |
-| `docs/images/vohivex-banner.png` | 1440 × 360，圆角绿色底，X 为对比色 `#397A16` |
+| `docs/images/vohivex-banner.png` | 1440 × 360, rounded green background with the X in contrasting `#397A16` |
 
-从项目根目录执行，Python 环境需提供 Pillow：
+Run these commands from the repository root. Pillow must be available in the Python environment:
 
 ```sh
 python3 app/branding/build-icon.py
 python3 app/branding/build-banner.py
 ```
 
-保留字体文件、`OFL.txt` 与 `manifest.json`。更新字体时同步核对来源、许可及文件校验值。
+Retain the font file, `OFL.txt`, and `manifest.json`. When updating the font, verify the source, license, and file checksums together.
