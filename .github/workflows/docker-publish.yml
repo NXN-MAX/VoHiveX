@@ -115,7 +115,7 @@ jobs:
             --entrypoint /bin/sh \
             -e CONFIG_PATH=/tmp/config.yaml \
             vohivex:test-${{ matrix.arch }} -ec '
-              test "$(/opt/vohivex/vohivex-gateway -version)" = 2.1.3
+              test "$(/opt/vohivex/vohivex-gateway -version)" = 2.1.4
               /opt/vohivex/vohivex-gateway -prepare-config
               grep -q "127.0.0.1:7576" /tmp/config.yaml
               grep -q "username: \"admin\"" /tmp/config.yaml

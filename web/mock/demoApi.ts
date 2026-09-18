@@ -39,7 +39,7 @@ function body(request: IncomingMessage) { return new Promise<any>((resolve) => {
 export function demoApi(): Plugin {
   return { name: 'vohivex-local-demo-api', configureServer(server) {
     server.middlewares.use(async (request, response, next) => {
-      if (request.url?.startsWith('/healthz')) return json(response, 200, { status: 'ok', version: '2.1.3', uptime_seconds: 3600 })
+      if (request.url?.startsWith('/healthz')) return json(response, 200, { status: 'ok', version: '2.1.4', uptime_seconds: 3600 })
       if (!request.url?.startsWith('/api/')) return next()
       const url = new URL(request.url, 'http://demo.local'); const path = url.pathname; const method = request.method || 'GET'
       if (path === '/api/auth/login') return json(response, 200, { token: 'vohivex-local-demo-token' })
