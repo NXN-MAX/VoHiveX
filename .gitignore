@@ -59,6 +59,7 @@ docs/*
 docs/images/*
 !docs/images/vohivex-banner.png
 !docs/images/dashboard.png
+!docs/images/esim.png
 !docs/images/proxy.png
 !docs/images/sms.png
 !docs/images/tasks.png
