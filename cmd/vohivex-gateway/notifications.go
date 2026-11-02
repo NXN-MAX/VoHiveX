@@ -23,23 +23,17 @@ import (
 )
 
 func (app *application) sendScheduledSMS(ctx context.Context, task *scheduledTask) (string, string) {
-	username, password, err := configCredentials(app.configPath)
-	if err != nil {
-		return "failed", "无法登录本机 VoHiveX，已暂停，请检查应用配置"
-	}
 	request, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://local/", nil)
-	status, value, err := app.upstreamJSON(request, http.MethodPost, "/api/auth/login", map[string]any{"username": username, "password": password}, 10*time.Second)
-	if err != nil || status != http.StatusOK {
+	token, err := app.coreLoginRequest(request)
+	if err != nil {
 		return "failed", "本机 VoHiveX 登录失败，已暂停"
 	}
-	login, _ := value.(map[string]any)
-	token, _ := login["token"].(string)
-	if token == "" {
-		return "failed", "本机 VoHiveX 登录失败，已暂停"
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	status, value, err = app.upstreamJSON(request, http.MethodGet, "/api/devices", nil, 15*time.Second)
+	request.Header.Set("Authorization", token)
+	status, value, err := app.upstreamJSON(request, http.MethodGet, "/api/devices", nil, 15*time.Second)
 	if err != nil || status != http.StatusOK {
+		if status == http.StatusUnauthorized {
+			app.invalidateCoreLogin(token)
+		}
 		return "failed", "发信设备不存在、未在线或未启用短信，已暂停"
 	}
 	data, _ := value.(map[string]any)
@@ -56,11 +50,10 @@ func (app *application) sendScheduledSMS(ctx context.Context, task *scheduledTas
 	if task.DeviceName == "" {
 		task.DeviceName = task.DeviceID
 	}
-	status, value, err = app.upstreamJSON(request, http.MethodPost, "/api/sms/send", map[string]any{"device_id": task.DeviceID, "phone": task.Phone, "message": task.Message}, 120*time.Second)
+	status, result, err := app.submitSMS(request, device, smsSendPayload{DeviceID: task.DeviceID, Phone: task.Phone, Message: task.Message})
 	if err != nil {
 		return "unknown", "发送结果未知，已暂停，请核对短信记录后再开始"
 	}
-	result, _ := value.(map[string]any)
 	task.SendResult = map[string]any{}
 	for _, key := range []string{"message_id", "delivery_state", "parts_total"} {
 		if item, exists := result[key]; exists {
@@ -75,11 +68,16 @@ func (app *application) sendScheduledSMS(ctx context.Context, task *scheduledTas
 
 func recipients(value any) []string {
 	var source []string
-	if items, ok := value.([]any); ok {
+	switch items := value.(type) {
+	case nil:
+		return nil
+	case []string:
+		source = items
+	case []any:
 		for _, item := range items {
 			source = append(source, fmt.Sprint(item))
 		}
-	} else {
+	default:
 		replacer := strings.NewReplacer(",", " ", "，", " ", ";", " ", "；", " ")
 		source = strings.Fields(replacer.Replace(fmt.Sprint(value)))
 	}
@@ -506,9 +504,9 @@ func (app *application) processNotification(ctx context.Context) {
 }
 
 func deliveryClassification(value map[string]any, requireCounts bool) (string, string, bool) {
-	state := fmt.Sprint(value["state"])
+	state, _ := value["state"].(string)
 	if state == "" {
-		state = fmt.Sprint(value["delivery_state"])
+		state, _ = value["delivery_state"].(string)
 	}
 	switch state {
 	case "failed":
@@ -529,19 +527,17 @@ func deliveryClassification(value map[string]any, requireCounts bool) (string, s
 }
 
 func (app *application) queryDelivery(ctx context.Context, messageID string) (map[string]any, error) {
-	username, password, err := configCredentials(app.configPath)
-	if err != nil {
-		return nil, err
-	}
 	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://local/", nil)
-	status, value, err := app.upstreamJSON(request, http.MethodPost, "/api/auth/login", map[string]any{"username": username, "password": password}, 10*time.Second)
-	if err != nil || status != http.StatusOK {
+	token, err := app.coreLoginRequest(request)
+	if err != nil {
 		return nil, fmt.Errorf("login failed")
 	}
-	login, _ := value.(map[string]any)
-	request.Header.Set("Authorization", "Bearer "+fmt.Sprint(login["token"]))
-	status, value, err = app.upstreamJSON(request, http.MethodGet, "/api/sms/delivery/"+url.PathEscape(messageID), nil, 10*time.Second)
+	request.Header.Set("Authorization", token)
+	status, value, err := app.upstreamJSON(request, http.MethodGet, "/api/sms/delivery/"+url.PathEscape(messageID), nil, 10*time.Second)
 	if err != nil || status != http.StatusOK {
+		if status == http.StatusUnauthorized {
+			app.invalidateCoreLogin(token)
+		}
 		return nil, fmt.Errorf("query failed")
 	}
 	object, _ := value.(map[string]any)

@@ -9,6 +9,7 @@ const active = ref('telegram')
 const loading = ref(false)
 const saving = ref(false)
 const testing = reactive({ webhook: false, bark: false, email: false })
+const preservedChannels = ref<Record<string, unknown>>({})
 const config = reactive<any>({
   telegram: { enabled: false, bot_token: '', chat_id: '', admin_id: '', base_url: '', proxy: '' },
   feishu: { enabled: false, app_id: '', app_secret: '', chat_ids: '' },
@@ -16,7 +17,7 @@ const config = reactive<any>({
   bark: { enabled: false, urls: '', group: 'vohive', icon: '', level: 'active' },
   email: { enabled: false, use_ssl: false, smtp_host: '', smtp_port: 465, username: '', password: '', from_address: '', to_addresses: '' },
   pushplus: { enabled: false, token: '', topic: '', channel: 'wechat' },
-  webhook: { enabled: false, urls: '', secret: '', headers_text: '', timeout_ms: 5000, retry_max: 3, text_template: '{{device_label}} {{text}}' },
+  webhook: { enabled: false, format: 'generic', urls: '', secret: '', feishu_secret: '', headers_text: '', timeout_ms: 5000, retry_max: 3, text_template: '{{device_label}} {{text}}' },
 })
 const tabs = [{ key: 'telegram', label: 'Telegram Bot' }, { key: 'feishu', label: '飞书 Bot' }, { key: 'qq', label: 'QQ Bot' }, { key: 'bark', label: 'Bark' }, { key: 'email', label: 'Email' }, { key: 'pushplus', label: 'Pushplus' }, { key: 'webhook', label: 'Webhook' }]
 const barkLevels = [{ label: '时效性 (timeSensitive)', value: 'timeSensitive' }, { label: '积极 (active)', value: 'active' }, { label: '被动 (passive)', value: 'passive' }]
@@ -48,6 +49,7 @@ async function load() {
   loading.value = true
   try {
     const data = await request<any>({ url: '/settings/notifications' })
+    preservedChannels.value = Object.fromEntries(Object.entries(data).filter(([key]) => !(key in config)))
     for (const key of Object.keys(config)) if (data[key]) Object.assign(config[key], data[key])
     config.feishu.chat_ids = join(data.feishu?.chat_ids)
     config.bark.urls = lines(data.bark?.urls)
@@ -60,6 +62,7 @@ async function load() {
 function payload() {
   const { headers_text: _headersText, ...webhook } = config.webhook
   return {
+    ...preservedChannels.value,
     ...config,
     telegram: { ...config.telegram, chat_id: Number(config.telegram.chat_id) || 0, admin_id: Number(config.telegram.admin_id) || 0 },
     feishu: { ...config.feishu, chat_ids: split(config.feishu.chat_ids) },
@@ -149,9 +152,11 @@ onMounted(load)
             </a-form>
 
             <a-form v-else layout="vertical" class="channel-form">
+              <a-form-item label="消息格式"><a-select v-model:value="config.webhook.format" :disabled="!config.webhook.enabled" :options="[{ value: 'generic', label: '通用 Webhook' }, { value: 'dingtalk', label: '钉钉群机器人' }, { value: 'chat_robots', label: '群机器人（钉钉 / 飞书）' }]" /><p v-if="config.webhook.format !== 'generic'" class="field-help">推送全部通知，包含短信正文与完整号码。若机器人设置了关键词，请在文本模板中加入该关键词。</p></a-form-item>
               <a-form-item label="目标 URLs"><a-textarea v-model:value="config.webhook.urls" :disabled="!config.webhook.enabled" :rows="3" placeholder="https://...&#10;每行一个地址" /></a-form-item>
-              <a-form-item label="数字签名密钥（Secret）"><PasswordInput v-model:value="config.webhook.secret" :disabled="!config.webhook.enabled" placeholder="用于 HMAC-SHA256 签名，选填" /><p class="field-help">配置后通过请求头 X-Vohive-Signature 提供 payload 验证。</p></a-form-item>
-              <a-form-item label="自定义请求头（Headers）"><a-textarea v-model:value="config.webhook.headers_text" :disabled="!config.webhook.enabled" :rows="3" placeholder="Authorization: Bearer xxx&#10;X-Api-Key: your-key" /><p class="field-help">每行填写一个 Header。Content-Type 与 X-Vohive-Signature 为系统保留头。</p></a-form-item>
+              <a-form-item :label="config.webhook.format === 'generic' ? '数字签名密钥（Secret）' : '钉钉签名密钥（可选）'"><PasswordInput v-model:value="config.webhook.secret" :disabled="!config.webhook.enabled" placeholder="用于 HMAC-SHA256 签名，选填" /><p class="field-help">{{ config.webhook.format !== 'generic' ? '钉钉机器人启用加签时填写 SEC 开头的密钥；仅使用关键词时留空。' : '配置后通过请求头 X-Vohive-Signature 提供 payload 验证。' }}</p></a-form-item>
+              <a-form-item v-if="config.webhook.format === 'generic'" label="自定义请求头（Headers）"><a-textarea v-model:value="config.webhook.headers_text" :disabled="!config.webhook.enabled" :rows="3" placeholder="Authorization: Bearer xxx&#10;X-Api-Key: your-key" /><p class="field-help">每行填写一个 Header。Content-Type 与 X-Vohive-Signature 为系统保留头。</p></a-form-item>
+              <a-form-item v-if="config.webhook.format === 'chat_robots'" label="飞书签名密钥（可选）"><PasswordInput v-model:value="config.webhook.feishu_secret" :disabled="!config.webhook.enabled" placeholder="飞书机器人开启签名校验时填写" /><p class="field-help">支持同时填写钉钉和飞书地址，分别按对应平台格式推送。</p></a-form-item>
               <a-form-item label="文本模板（Text Template）"><a-textarea v-model:value="config.webhook.text_template" :disabled="!config.webhook.enabled" :rows="2" :placeholder="webhookTemplatePlaceholder" /><p class="field-help">{{ webhookTemplateHelp }}</p></a-form-item>
               <div class="two-cols"><a-form-item label="请求超时（ms）"><a-input-number v-model:value="config.webhook.timeout_ms" :disabled="!config.webhook.enabled" :min="1000" :max="60000" /></a-form-item><a-form-item label="最大重试次数"><a-input-number v-model:value="config.webhook.retry_max" :disabled="!config.webhook.enabled" :min="0" :max="10" /></a-form-item></div>
               <a-button class="ghost-button" :loading="testing.webhook" :disabled="!config.webhook.enabled || !config.webhook.urls.trim()" @click="test('webhook')">发送测试</a-button>

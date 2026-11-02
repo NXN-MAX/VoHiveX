@@ -33,20 +33,87 @@ func (app *application) builtInData(enabled bool) map[string]any {
 }
 
 func (app *application) coreLoginRequest(ctx *http.Request) (string, error) {
+	app.coreAuthMu.Lock()
+	defer app.coreAuthMu.Unlock()
+	now := time.Now()
+	if app.coreToken != "" && now.Before(app.coreExpiry) {
+		return app.coreToken, nil
+	}
+	if now.Before(app.coreRetry) {
+		return "", errors.New("本机登录正在等待重试")
+	}
 	username, password, err := configCredentials(app.configPath)
 	if err != nil {
+		app.coreRetry = now.Add(15 * time.Minute)
 		return "", err
 	}
 	status, value, err := app.upstreamJSON(ctx, http.MethodPost, "/api/auth/login", map[string]any{"username": username, "password": password}, 10*time.Second)
 	if err != nil || status != http.StatusOK {
+		app.coreRetry = now.Add(15 * time.Minute)
 		return "", errors.New("本机登录尚未就绪")
 	}
 	object, _ := value.(map[string]any)
 	token, _ := object["token"].(string)
 	if token == "" {
+		app.coreRetry = now.Add(15 * time.Minute)
 		return "", errors.New("本机登录尚未就绪")
 	}
-	return "Bearer " + token, nil
+	app.coreToken = "Bearer " + token
+	app.coreExpiry = now.Add(12 * time.Hour)
+	app.coreRetry = time.Time{}
+	return app.coreToken, nil
+}
+
+func (app *application) rememberCoreLogin(token string) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return
+	}
+	if !strings.HasPrefix(token, "Bearer ") {
+		token = "Bearer " + token
+	}
+	app.coreAuthMu.Lock()
+	app.coreToken = token
+	app.coreExpiry = time.Now().Add(12 * time.Hour)
+	app.coreRetry = time.Time{}
+	app.coreAuthMu.Unlock()
+}
+
+func (app *application) invalidateCoreLogin(token string) {
+	app.coreAuthMu.Lock()
+	defer app.coreAuthMu.Unlock()
+	if token == "" || token == app.coreToken {
+		app.coreToken = ""
+		app.coreExpiry = time.Time{}
+	}
+}
+
+func (app *application) authLoginAPI(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "方法不支持"})
+		return
+	}
+	if !sameOrigin(r) {
+		writeJSON(w, http.StatusForbidden, map[string]any{"error": "不允许跨站登录"})
+		return
+	}
+	payload := map[string]any{}
+	if !decodeJSON(w, r, &payload, 16<<10) {
+		return
+	}
+	status, value, err := app.upstreamJSON(r, http.MethodPost, "/api/auth/login", payload, 10*time.Second)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "登录服务暂时不可用"})
+		return
+	}
+	if status == http.StatusOK {
+		if object, ok := value.(map[string]any); ok {
+			if token, ok := object["token"].(string); ok {
+				app.rememberCoreLogin(token)
+			}
+		}
+	}
+	writeJSON(w, status, value)
 }
 
 func (app *application) ensureBuiltInProxy(_ any) {
@@ -58,6 +125,9 @@ func (app *application) ensureBuiltInProxy(_ any) {
 	request.Header.Set("Authorization", token)
 	status, value, err := app.upstreamJSON(request, http.MethodGet, "/api/upstream-proxies", nil, 10*time.Second)
 	if err != nil || status != http.StatusOK {
+		if status == http.StatusUnauthorized {
+			app.invalidateCoreLogin(token)
+		}
 		return
 	}
 	var existing map[string]any

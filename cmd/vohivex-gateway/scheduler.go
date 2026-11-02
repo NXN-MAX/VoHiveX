@@ -544,6 +544,19 @@ func sortDeviceRows(rows []map[string]any) {
 }
 
 func (app *application) runWorkers(ctx context.Context) {
+	// Local USB testing must not run NAS proxy maintenance or SMS jobs.
+	if app.localCallsOnly {
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				app.pollCallsBackground(ctx)
+			}
+		}
+	}
 	if err := app.tasks.Recover(); err != nil {
 		logSafe("scheduler recovery", err)
 	}
@@ -600,6 +613,18 @@ func (app *application) runWorkers(ctx context.Context) {
 			case <-ticker.C:
 				app.proxy.Maintain()
 				app.ensureBuiltInProxy(ctx)
+			}
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(3 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				app.pollCallsBackground(ctx)
 			}
 		}
 	}()

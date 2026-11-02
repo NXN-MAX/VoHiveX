@@ -15,7 +15,7 @@ The default credentials are created only when no configuration exists. Existing 
 1. The host must already provide `option`, `qmi_wwan`, and their dependencies for the running kernel, as well as Docker Compose.
 2. Put `docker-compose.yml` and `.env.example` in the same directory, then copy `.env.example` to `.env`.
 3. The kernel version is detected automatically. Drivers that are not already loaded are loaded from the matching directory for the running kernel. Initialization stops and records an error if that directory is missing or loading fails.
-4. Set `VOHIVE_BIND_IP`. The default, `127.0.0.1`, permits local access only. For LAN access, use the host's LAN address.
+4. Keep the automatic kernel detection settings. Compose uses host networking and serves port `7575`; use a strong VoHiveX password and the NAS firewall for LAN access.
 5. Run:
 
 ```sh

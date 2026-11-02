@@ -132,7 +132,7 @@ function messageStatus(row: SmsMessage) {
 }
 
 async function loadDevices() {
-  const data = await request<{ devices?: Device[] }>({ url: '/devices' })
+  const data = await request<{ devices?: Device[] }>({ url: '/sms/devices' })
   devices.value = data.devices || []
   transferDevice.value ||= devices.value[0]?.id || ''
 }
@@ -174,7 +174,7 @@ async function loadThread(silent = false) {
   }
 }
 async function sendSms() {
-  if (!current.value || !draft.value.trim()) return
+  if (sending.value || !current.value || !draft.value.trim()) return
   sending.value = true
   try {
     await request({ method: 'POST', url: '/sms/send', data: { device_id: current.value.device_id || deviceId.value, imsi: current.value.imsi || undefined, phone: current.value.peer, message: draft.value.trim() } })
@@ -182,6 +182,11 @@ async function sendSms() {
     await nextTick(); resizeComposer(); await loadThread()
     window.setTimeout(() => loadContacts(true, true), 800)
   } catch (reason) { message.error(apiError(reason).message) } finally { sending.value = false }
+}
+function onComposerKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing || sending.value) return
+  event.preventDefault()
+  void sendSms()
 }
 function openNewSms() {
   const preferred = deviceId.value !== 'all' && devices.value.some((row) => row.id === deviceId.value)
@@ -320,7 +325,7 @@ onBeforeUnmount(() => window.clearInterval(pollTimer))
         <a-spin :spinning="loading"><EmptyState v-if="!filtered.length" title="暂无短信会话" icon="message-2-line" /><div v-else class="thread-list"><div v-for="row in filtered" :key="row.key" class="thread-row" :class="{ active: activeKey === row.key }" role="button" tabindex="0" @click="selecting ? toggleSelection(row.key) : openThread(row.key)" @keydown.enter="selecting ? toggleSelection(row.key) : openThread(row.key)"><span class="thread-leading" :class="{ 'selection-visible': selecting }"><span v-if="selecting" class="select-dot" :class="{ checked: selected.includes(row.key) }"><RiIcon v-if="selected.includes(row.key)" name="check-line" :size="12" /></span></span><span class="thread-copy"><strong>{{ row.peer }}</strong><small>{{ row.last_content || '暂无内容' }}</small></span><time class="thread-time"><span>{{ dateParts(contactTimestamp(row)).date }}</span><span>{{ dateParts(contactTimestamp(row)).time }}</span></time><span v-if="!selecting && isUnread(row)" class="unread-dot" title="未读消息" /><button v-if="!selecting" class="thread-delete" :aria-label="`删除与 ${row.peer} 的会话`" title="删除会话" @click.stop="confirmDeleteThread(row)"><RiIcon name="delete-bin-line" :size="17" /></button></div></div></a-spin>
         <div v-if="selecting" class="selection-dock"><button :disabled="!selected.length" @click="confirmBatch('read')">标记已读</button><button :disabled="!selected.length" @click="confirmBatch('unread')">标记未读</button><button class="danger" :disabled="!selected.length" @click="confirmBatch('delete')">删除</button></div>
       </aside>
-      <main class="chat-pane"><template v-if="current"><header class="chat-header"><button class="mobile-back" aria-label="返回会话" @click="mobileChatOpen = false"><RiIcon name="arrow-left-line" /></button><div><strong>{{ current.peer }}</strong><small>本机：{{ current.local_phone || phoneOf(devices.find(row => row.id === current?.device_id)) || '号码未知' }}</small></div><span>最新</span></header><div class="message-list"><a-spin :spinning="threadLoading"><div v-for="row in messages" :key="row.id" class="message-line" :class="{ outgoing: isOutgoing(row) }"><div class="message-bubble"><span>{{ messageContent(row) }}</span><small class="message-meta"><time>{{ displayTime(messageTimestamp(row)) }}</time><em v-if="isOutgoing(row)" :class="messageStatus(row).class">{{ messageStatus(row).label }}</em></small></div></div></a-spin></div><form class="composer" @submit.prevent="sendSms"><small class="sms-metrics">{{ smsMetrics.encoding }} · 预计 {{ smsMetrics.segments }} 段 · {{ smsMetrics.chars }} 字</small><div class="composer-row"><textarea ref="composer" v-model="draft" rows="1" maxlength="2000" placeholder="回复（Enter 发送）" @input="resizeComposer" /><a-button type="primary" html-type="submit" :loading="sending" :disabled="!draft.trim()">发送</a-button></div></form></template><EmptyState v-else title="选择一个会话" description="从左侧会话列表查看或发送短信" icon="chat-voice-line" /></main>
+      <main class="chat-pane"><template v-if="current"><header class="chat-header"><button class="mobile-back" aria-label="返回会话" @click="mobileChatOpen = false"><RiIcon name="arrow-left-line" /></button><div><strong>{{ current.peer }}</strong><small>本机：{{ current.local_phone || phoneOf(devices.find(row => row.id === current?.device_id)) || '号码未知' }}</small></div><span>最新</span></header><div class="message-list"><a-spin :spinning="threadLoading"><div v-for="row in messages" :key="row.id" class="message-line" :class="{ outgoing: isOutgoing(row) }"><div class="message-bubble"><span>{{ messageContent(row) }}</span><small class="message-meta"><time>{{ displayTime(messageTimestamp(row)) }}</time><em v-if="isOutgoing(row)" :class="messageStatus(row).class">{{ messageStatus(row).label }}</em></small></div></div></a-spin></div><form class="composer" @submit.prevent="sendSms"><small class="sms-metrics">{{ smsMetrics.encoding }} · 预计 {{ smsMetrics.segments }} 段 · {{ smsMetrics.chars }} 字</small><div class="composer-row"><textarea ref="composer" v-model="draft" rows="1" maxlength="2000" placeholder="回复（Enter 发送，Shift+Enter 换行）" @input="resizeComposer" @keydown="onComposerKeydown" /><a-button type="primary" html-type="submit" :loading="sending" :disabled="!draft.trim()">发送</a-button></div></form></template><EmptyState v-else title="选择一个会话" description="从左侧会话列表查看或发送短信" icon="chat-voice-line" /></main>
     </section>
 
     <a-modal v-model:open="newSmsOpen" title="发送短信" width="min(520px, 92vw)" :confirm-loading="newSmsSending" ok-text="发送" cancel-text="取消" @ok="sendNewSms">

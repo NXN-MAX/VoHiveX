@@ -12,6 +12,8 @@ const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: () => import('@/pages/DashboardPage.vue') },
         { path: 'devices', name: 'devices', component: () => import('@/pages/DevicesPage.vue') },
+        { path: 'network-debug', name: 'network-debug', component: () => import('@/pages/NetworkDebugPage.vue') },
+        { path: 'calls', name: 'calls', component: () => import('@/pages/CallsPage.vue') },
         { path: 'proxy', name: 'proxy', component: () => import('@/pages/ProxyPage.vue') },
         { path: 'sms', name: 'sms', component: () => import('@/pages/SmsPage.vue') },
         { path: 'tasks', name: 'tasks', component: () => import('@/pages/TasksPage.vue') },

@@ -7,7 +7,7 @@ Run the following commands from the repository root. The Compose project name is
 - Frontend build machine: Python 3 and Node.js/npm. UPX is required only when regenerating binary patches.
 - Runtime host: Docker Compose, plus `option`, `qmi_wwan`, and their dependencies for the running kernel.
 - Modem interfaces: the adapter registers a runtime match for `2ca3:4006`; MI_02 is used for AT and MI_04 for QMI. It does not change the device USB ID. Other devices continue to use the kernel's existing match table.
-- Dependencies are installed only inside the container image; host system packages are not updated. The current Compose configuration does not grant `NET_ADMIN` and therefore does not provide mobile-data dialing privileges.
+- Dependencies are installed only inside the container image; host system packages are not updated. Compose uses host networking so Network Debug can see the modem interfaces. `NET_ADMIN` lets the modem core configure an enabled cellular interface, whose default route uses metric `5000`; the NAS LAN route remains preferred and DNS is not changed. `NET_RAW` binds each diagnostic browser session to its selected cellular interface.
 
 ## Build
 
@@ -25,7 +25,7 @@ Use `--arch amd64`, `--arch arm64`, or `--arch armv7` to prepare a single archit
 
 ## Configure and Start
 
-1. Copy `.env.example` to `.env`, set `VOHIVE_BIND_IP`, and leave kernel detection automatic.
+1. Copy `.env.example` to `.env` and leave kernel detection automatic.
 2. Run:
 
 ```sh
@@ -35,7 +35,7 @@ docker compose -f docker-compose.single.yml up -d
 
 The default web port is `7575`; the default username and password are both `admin`. On first start, VoHiveX creates `config/config.yaml`. Existing credentials, devices, and proxy settings are preserved. Legacy configurations automatically migrate `server.port` to `127.0.0.1:7576`, which is used only by the gateway inside the container. The external port and health check use `7575`.
 
-The default binding is host address `127.0.0.1`. For LAN access, set the host's LAN address in `.env`. After a host kernel upgrade, verify driver compatibility again.
+Compose uses host networking and serves port `7575` on the Docker host. Protect LAN access with a strong VoHiveX password and the NAS firewall. After a host kernel upgrade, verify driver compatibility again.
 
 ## Runtime Checks
 

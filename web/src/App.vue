@@ -3,27 +3,57 @@ import { computed, ref, watch } from 'vue'
 import { ConfigProvider, Modal } from 'antdv-next'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { apiError, request } from '@/api/http'
 
 const auth = useAuthStore()
 const ui = useUiStore()
 const agreementText = ref('')
-const agreementKey = 'vohive_disclaimer_agreed_at'
+const legacyAgreementKey = 'vohive_disclaimer_agreed_at'
 const requiredText = '我同意并确认'
-const week = 7 * 24 * 60 * 60 * 1000
 const showAgreement = ref(false)
+const agreementBusy = ref(false)
+const agreementError = ref('')
+const agreementUserID = ref('')
+let agreementRequest = 0
+interface AgreementState { user_id: string; accepted: boolean; accepted_at: number }
 
-watch(
-  () => auth.isAuthenticated,
-  (signedIn) => {
-    if (!signedIn) {
-      showAgreement.value = false
-      return
+async function loadAgreement() {
+  const current = ++agreementRequest
+  const token = auth.token
+  showAgreement.value = false
+  agreementError.value = ''
+  agreementText.value = ''
+  agreementUserID.value = ''
+  if (!token) { agreementBusy.value = false; return }
+  agreementBusy.value = true
+  try {
+    let state = await request<AgreementState>({ url: '/settings/agreement' })
+    if (current !== agreementRequest || token !== auth.token) return
+    if (!state.accepted) {
+      let previous = 0
+      try { previous = Number(localStorage.getItem(legacyAgreementKey) || 0) } catch { /* Storage may be disabled. */ }
+      if (Number.isSafeInteger(previous) && previous >= 946684800000 && previous <= Date.now()) {
+        state = await request<AgreementState>({ method: 'POST', url: '/settings/agreement', data: { user_id: state.user_id, previous_accepted_at: previous } })
+        if (current !== agreementRequest || token !== auth.token) return
+      }
     }
-    const value = Number(localStorage.getItem(agreementKey) || 0)
-    showAgreement.value = !value || Date.now() - value >= week
-  },
-  { immediate: true },
-)
+    agreementUserID.value = state.user_id
+    showAgreement.value = !state.accepted
+    if (state.accepted) {
+      try { localStorage.removeItem(legacyAgreementKey) } catch { /* Server state is authoritative. */ }
+    }
+  } catch (reason) {
+    if (current === agreementRequest && token === auth.token) {
+      const error = apiError(reason)
+      if (error.status === 401) auth.logout()
+      else agreementError.value = error.message
+    }
+  } finally {
+    if (current === agreementRequest) agreementBusy.value = false
+  }
+}
+
+watch(() => auth.token, () => { void loadAgreement() }, { immediate: true })
 
 const theme = computed(() => ({
   token: {
@@ -49,19 +79,38 @@ const theme = computed(() => ({
   },
 }))
 
-function acceptAgreement() {
-  if (agreementText.value !== requiredText) return
-  localStorage.setItem(agreementKey, String(Date.now()))
-  showAgreement.value = false
-  agreementText.value = ''
+async function acceptAgreement() {
+  if (agreementText.value !== requiredText || agreementBusy.value || !agreementUserID.value) return
+  const current = agreementRequest
+  const token = auth.token
+  agreementBusy.value = true
+  agreementError.value = ''
+  try {
+    const state = await request<AgreementState>({ method: 'POST', url: '/settings/agreement', data: { user_id: agreementUserID.value, confirmation: agreementText.value } })
+    if (current !== agreementRequest || token !== auth.token) return
+    showAgreement.value = !state.accepted
+    if (state.accepted) {
+      agreementText.value = ''
+      try { localStorage.removeItem(legacyAgreementKey) } catch { /* Server state is authoritative. */ }
+    }
+  } catch (reason) {
+    if (current === agreementRequest && token === auth.token) {
+      const error = apiError(reason)
+      if (error.status === 401) auth.logout()
+      else agreementError.value = error.message
+    }
+  } finally {
+    if (current === agreementRequest) agreementBusy.value = false
+  }
 }
+
 </script>
 
 <template>
   <ConfigProvider :theme="theme">
     <RouterView />
     <Modal
-      v-model:open="showAgreement"
+      :open="auth.isAuthenticated && (showAgreement || Boolean(agreementError))"
       :closable="false"
       :mask-closable="false"
       :keyboard="false"
@@ -69,7 +118,12 @@ function acceptAgreement() {
       width="560px"
       class="agreement-modal"
     >
-      <div class="agreement-content">
+      <div v-if="!showAgreement && agreementError" class="agreement-content">
+        <h2>暂时无法读取确认状态</h2>
+        <p role="alert">{{ agreementError }}</p>
+        <div class="dialog-actions"><a-button :loading="agreementBusy" @click="loadAgreement">重试</a-button></div>
+      </div>
+      <div v-else class="agreement-content">
         <h2>VoHiveX 最终用户许可与免责声明</h2>
         <ol>
           <li>本软件仅供技术研究、学习交流和个人内部测试使用，严禁用于商业用途。</li>
@@ -78,9 +132,10 @@ function acceptAgreement() {
           <li>继续使用表示您理解并接受以上条款。</li>
         </ol>
         <label for="agreement-input">请输入“{{ requiredText }}”</label>
-        <a-input id="agreement-input" v-model:value="agreementText" size="large" />
+        <a-input id="agreement-input" v-model:value="agreementText" size="large" :disabled="agreementBusy" />
+        <p v-if="agreementError" role="alert">{{ agreementError }}</p>
         <div class="dialog-actions">
-          <a-button type="primary" :disabled="agreementText !== requiredText" @click="acceptAgreement">
+          <a-button type="primary" :disabled="agreementText !== requiredText" :loading="agreementBusy" @click="acceptAgreement">
             同意并继续
           </a-button>
         </div>

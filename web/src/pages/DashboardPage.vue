@@ -8,6 +8,7 @@ import RiIcon from '@/components/RiIcon.vue'
 import TrafficAnalysisPanel from '@/components/TrafficAnalysisPanel.vue'
 import { request } from '@/api/http'
 import type { Device } from '@/types/domain'
+import { cellularRegistered, cellularSignal } from '@/utils/cellular'
 
 type TrafficRange = 'day' | 'week' | 'month'
 const router = useRouter()
@@ -30,17 +31,8 @@ function modemOf(device: Device) {
   return device.modem || {}
 }
 
-function cellularRegistered(device: Device) {
-  const modem = modemOf(device)
-  const status = Number(modem.reg_status ?? modem.registration_status)
-  if ([1, 5].includes(status)) return true
-  const text = String(modem.reg_status_text || '').trim()
-  return text.includes('已注册') || /\b(registered|home|roaming)\b/i.test(text)
-}
-
 function signalValue(device: Device) {
-  const value = Number(modemOf(device).signal_dbm ?? device.signal_dbm ?? -999)
-  return Number.isFinite(value) && value !== 0 && value !== -999 ? value : undefined
+  return cellularSignal(device)
 }
 
 function cellularAvailable(device: Device) {
@@ -155,7 +147,7 @@ onBeforeUnmount(() => { window.clearInterval(deviceTimer); window.clearInterval(
             <span class="network-name"><RiIcon :name="networkIcon(device)" :size="16" />{{ networkName(device) }}</span>
             <small>{{ networkLabel(device) }}</small>
           </span>
-          <span v-if="!device.vowifi_active" class="device-signal">{{ signalValue(device) !== undefined ? `${signalValue(device)} dBm` : (cellularAvailable(device) ? '-- dBm' : '无蜂窝信号') }}</span>
+          <span v-if="device.healthy && !device.vowifi_active" class="device-signal">{{ signalValue(device) !== undefined ? `${signalValue(device)} dBm` : (cellularAvailable(device) ? '-- dBm' : '无蜂窝信号') }}</span>
           <EgressIps v-if="device.vowifi_active" compact :device-id="device.id" :vowifi-enabled="true" />
         </button>
       </div>
@@ -165,7 +157,7 @@ onBeforeUnmount(() => { window.clearInterval(deviceTimer); window.clearInterval(
 </template>
 
 <style scoped>
-.dashboard-heading{display:grid;grid-template-columns:minmax(260px,1fr) auto auto;align-items:flex-start;gap:32px}.dashboard-heading :deep(.page-header){min-width:0}.dashboard-summary{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:5px 26px;margin:5px 0 28px;font-size:13px;font-variant-numeric:tabular-nums}.dashboard-summary div{display:grid;grid-template-columns:5em minmax(4em,1fr);gap:8px}.dashboard-summary dt{color:var(--vx-muted)}.dashboard-summary dd{margin:0;color:var(--vx-ink);font-weight:700;white-space:nowrap}.dashboard-refresh{justify-self:end}.page-alert{margin-bottom:20px}.device-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,288px));gap:20px}.device-card{display:flex;min-height:174px;flex-direction:column;gap:13px;padding:20px;border:0;border-radius:20px;background:var(--vx-panel);color:var(--vx-ink);text-align:left;cursor:pointer;transition:transform .15s ease,background .15s ease}.device-card:hover{transform:translateY(-2px);background:color-mix(in srgb,var(--vx-panel) 90%,var(--vx-accent))}.device-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:13px;border-bottom:1px solid color-mix(in srgb,var(--vx-line) 70%,transparent)}.device-card-heading strong{min-width:0;overflow:hidden;font-size:16px;text-overflow:ellipsis;white-space:nowrap}.device-state{display:inline-flex;align-items:center;gap:6px;flex:none;color:var(--vx-muted);font-size:12px;white-space:nowrap}.device-state i{width:7px;height:7px;border-radius:50%;background:#a4a69f}.device-state.online{color:#3e771b}.device-state.online i{background:#61bd32}.device-state.offline{color:var(--vx-danger)}.device-state.offline i{background:var(--vx-danger)}.device-card-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.network-name{display:flex;min-width:0;align-items:center;gap:7px;overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.device-card-row small,.device-signal{color:var(--vx-muted);font-size:11px}.device-card :deep(.compact-ip){margin-top:auto;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--vx-line) 70%,transparent)}
+.dashboard-heading{display:grid;grid-template-columns:minmax(260px,1fr) auto auto;align-items:flex-start;gap:32px}.dashboard-heading :deep(.page-header){min-width:0}.dashboard-summary{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:5px 26px;margin:5px 0 28px;font-size:13px;font-variant-numeric:tabular-nums}.dashboard-summary div{display:grid;grid-template-columns:5em minmax(4em,1fr);gap:8px}.dashboard-summary dt{color:var(--vx-muted)}.dashboard-summary dd{margin:0;color:var(--vx-ink);font-weight:700;white-space:nowrap}.dashboard-refresh{justify-self:end}.page-alert{margin-bottom:20px}.device-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,288px));gap:20px}.device-card{display:flex;min-width:0;min-height:174px;flex-direction:column;gap:13px;padding:20px;border:0;border-radius:20px;background:var(--vx-panel);color:var(--vx-ink);text-align:left;cursor:pointer;transition:transform .15s ease,background .15s ease}.device-card:hover{transform:translateY(-2px);background:color-mix(in srgb,var(--vx-panel) 90%,var(--vx-accent))}.device-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:13px;border-bottom:1px solid color-mix(in srgb,var(--vx-line) 70%,transparent)}.device-card-heading strong{min-width:0;overflow:hidden;font-size:16px;text-overflow:ellipsis;white-space:nowrap}.device-state{display:inline-flex;align-items:center;gap:6px;flex:none;color:var(--vx-muted);font-size:12px;white-space:nowrap}.device-state i{width:7px;height:7px;border-radius:50%;background:#a4a69f}.device-state.online{color:#3e771b}.device-state.online i{background:#61bd32}.device-state.offline{color:var(--vx-danger)}.device-state.offline i{background:var(--vx-danger)}.device-card-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.network-name{display:flex;min-width:0;align-items:center;gap:7px;overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.device-card-row small,.device-signal{color:var(--vx-muted);font-size:11px}.device-card :deep(.compact-ip){margin-top:auto;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--vx-line) 70%,transparent)}
 @media(max-width:1050px){.dashboard-heading{grid-template-columns:minmax(0,1fr) auto}.dashboard-summary{grid-column:1/-1;grid-row:2;margin:-10px 0 24px}.dashboard-refresh{grid-column:2;grid-row:1}.device-card-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}}
-@media(max-width:620px){.dashboard-summary{grid-template-columns:1fr 1fr;gap:6px 12px}.dashboard-summary div{display:block}.dashboard-summary dd{margin-top:2px}.device-card-grid{grid-template-columns:1fr}.device-card{max-width:none}}
+@media(max-width:620px){.dashboard-summary{grid-template-columns:1fr 1fr;gap:6px 12px}.dashboard-summary div{display:block}.dashboard-summary dd{margin-top:2px}.device-card-grid{grid-template-columns:minmax(0,1fr)}.device-card{max-width:none}}
 </style>

@@ -6,6 +6,16 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 case "${1:-inspect}" in
   inspect) inspect ;;
   health) health ;;
+  container-health)
+    # No plugged-in modem is a normal server state. Keep strict binding
+    # checks when supported hardware is present; the runtime loop still uses
+    # strict health so it reports 'waiting' while unplugged.
+    for p in "$USB"/devices/*; do
+      is_dji "$p" || continue
+      health
+      exit $?
+    done
+    exit 0 ;;
   cleanup) cleanup ;;
   run)
     inspect

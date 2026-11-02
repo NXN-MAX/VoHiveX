@@ -73,3 +73,31 @@ docs/images/*
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Native telephone bridge builds and private runtime artifacts
+/call-bridge/call-bridge
+/call-bridge/vohivex-call-bridge
+/call-bridge/runtime/
+/call-bridge/state/
+*.part.wav
+
+# Private optional cellular relay configuration
+network-debug-relay.json
+network-debug-mihomo/
+
+# Captures and development-only communication records
+*.pcap
+*.pcapng
+*.wav
+*.raw
+*.pcm
+*.jsonl
+*.har
+*.trace
+*.sock
+*.pid
+**/recordings/
+**/private/
+**/runtime-data/
+**/*-shm
+**/*-wal

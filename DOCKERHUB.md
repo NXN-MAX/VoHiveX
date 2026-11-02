@@ -25,7 +25,7 @@ Default credentials are created only for a new installation. Updates preserve th
 docker pull maxnxxn/vohivex:2.1.4
 ```
 
-Download `docker-compose.yml` and `.env.example` from the [GitHub repository](https://github.com/NXN-MAX/VoHiveX). Change the Compose `image` value to `maxnxxn/vohivex:2.1.4`, copy `.env.example` to `.env`, and set `VOHIVE_BIND_IP`. The kernel version is detected automatically and must not be entered manually. Then run `docker compose pull && docker compose up -d`.
+Download `docker-compose.yml` and `.env.example` from the [GitHub repository](https://github.com/NXN-MAX/VoHiveX). Change the Compose `image` value to `maxnxxn/vohivex:2.1.4`, copy `.env.example` to `.env`, and leave kernel detection automatic. Compose uses host networking so the selected cellular interface is available to Network Debug. Then run `docker compose pull && docker compose up -d`.
 
 Follow the [deployment guide](https://github.com/NXN-MAX/VoHiveX/blob/main/DEPLOY.md) to mount the configuration, data, and devices. Preserve `config`, `data`, `logs`, and `driver-state`; never bake user data into the image. ARM images are validated through emulated startup tests, while USB modem functions still require testing on physical hardware.
 

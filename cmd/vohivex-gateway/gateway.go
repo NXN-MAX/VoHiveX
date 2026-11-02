@@ -45,12 +45,26 @@ func (app *application) routes() http.Handler {
 			app.health(w, r)
 		case path == "/metrics":
 			app.metrics(w, r)
+		case path == "/api/auth/login":
+			app.authLoginAPI(w, r)
+		case path == "/api/logs/history" && r.Method == http.MethodDelete:
+			app.clearLogHistory(w, r)
 		case path == "/api/openapi.json" || path == "/api/openapi.yaml":
 			app.openAPISpec(w, r)
 		case path == "/api/settings/system":
 			app.systemMetadata(w, r)
 		case path == "/api/settings/username":
 			app.usernameSettings(w, r)
+		case path == "/api/settings/agreement":
+			if app.localCallsOnly {
+				reverse.ServeHTTP(w, r)
+			} else {
+				app.agreementAPI(w, r)
+			}
+		case path == webhookRelayPath:
+			app.webhookRelay(w, r)
+		case path == "/api/settings/notifications" || path == "/api/settings/notifications/webhook/test":
+			app.notificationSettings(w, r)
 		case path == "/api/managed-proxy" || strings.HasPrefix(path, "/api/managed-proxy/"):
 			app.managedProxyAPI(w, r)
 		case path == "/api/upstream-proxies" || strings.HasPrefix(path, "/api/upstream-proxies/"):
@@ -59,6 +73,16 @@ func (app *application) routes() http.Handler {
 			app.schedulerAPI(w, r)
 		case path == "/api/sms/archive/import" || path == "/api/sms/contacts" || path == "/api/sms/thread" || strings.HasPrefix(path, "/api/sms/messages/"):
 			app.smsHistoryAPI(w, r, reverse)
+		case path == "/api/sms/devices":
+			app.smsDevicesAPI(w, r)
+		case path == "/api/sms/send":
+			app.smsSendAPI(w, r)
+		case path == "/api/calls/audio/stream":
+			app.browserAudioStream(w, r)
+		case path == "/api/calls" || strings.HasPrefix(path, "/api/calls/"):
+			app.callsAPI(w, r)
+		case path == "/api/network-debug/devices" || path == "/api/network-debug/sessions" || strings.HasPrefix(path, "/api/network-debug/sessions/") || strings.HasPrefix(path, "/api/network-debug/view/"):
+			app.networkDebugAPI(w, r)
 		case app.serveAsset(w, r):
 		default:
 			reverse.ServeHTTP(w, r)
@@ -202,7 +226,7 @@ func (app *application) serveAsset(w http.ResponseWriter, r *http.Request) bool 
 		contentType = http.DetectContentType(raw)
 	}
 	w.Header().Set("Content-Type", contentType)
-	if filepath.Ext(path) == ".html" {
+	if filepath.Ext(path) == ".html" || strings.HasPrefix(name, "worklets/") {
 		w.Header().Set("Cache-Control", "no-cache")
 	} else {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

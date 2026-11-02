@@ -15,7 +15,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public files for private runtime data
+        run: python3 app/check-public-files.py
+
   go:
+    needs: privacy
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -62,6 +71,7 @@ jobs:
           if-no-files-found: error
 
   docker:
+    needs: privacy
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:

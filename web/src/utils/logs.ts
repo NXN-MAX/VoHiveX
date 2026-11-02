@@ -16,6 +16,7 @@ function firstText(row: LogRecord, keys: string[]) {
 }
 
 function formatLogTime(value: string) {
+  if (!value.trim()) return ''
   const number = Number(value)
   if (Number.isFinite(number)) {
     const date = new Date(number < 1e12 ? number * 1000 : number)
@@ -52,8 +53,8 @@ function extractLogRows(value: unknown, depth = 0): unknown[] {
   const preferredKeys = ['lines', 'logs', 'items', 'entries', 'history', 'data', 'result', 'content']
   for (const key of preferredKeys) {
     if (!(key in record)) continue
-    const rows = extractLogRows(record[key], depth + 1)
-    if (rows.length) return rows
+    // An empty known envelope is an empty log, not a log entry of its own.
+    return extractLogRows(record[key], depth + 1)
   }
 
   for (const nested of Object.values(record)) {

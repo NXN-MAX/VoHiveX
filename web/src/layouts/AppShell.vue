@@ -16,6 +16,8 @@ let heartbeatController: AbortController | null = null
 const items = [
   { to: '/', label: '仪表盘', icon: 'dashboard-line' },
   { to: '/devices', label: '设备管理', icon: 'smartphone-line' },
+  { to: '/network-debug', label: '网络调试', icon: 'earth-line' },
+  { to: '/calls', label: '电话', icon: 'phone-line' },
   { to: '/proxy', label: '代理管理', icon: 'global-line' },
   { to: '/sms', label: '短信中心', icon: 'message-2-line' },
   { to: '/tasks', label: '定时任务', icon: 'calendar-schedule-line' },

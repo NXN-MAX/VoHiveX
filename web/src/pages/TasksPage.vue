@@ -22,8 +22,8 @@ let timer = 0
 
 const activeCount = computed(() => tasks.value.filter((row) => row.state === 'active' || row.status === 'active').length)
 const pausedCount = computed(() => tasks.value.filter((row) => row.state === 'paused' || row.status === 'paused').length)
-const nextTask = computed(() => tasks.value.filter((row) => row.next_run).sort((a, b) => Number(a.next_run) - Number(b.next_run))[0])
-function formatTime(value: unknown) { return value ? new Date(Number(value) * (Number(value) < 1e12 ? 1000 : 1)).toLocaleString('zh-CN', { hour12: false }) : '—' }
+const nextTask = computed(() => tasks.value.filter((row) => (row.state === 'active' || row.status === 'active') && row.next_run).sort((a, b) => Number(a.next_run) - Number(b.next_run))[0])
+function formatTime(value: unknown) { return value ? new Date(Number(value) * (Number(value) < 1e12 ? 1000 : 1)).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }) : '—' }
 function intervalText(value: number) { let rest = value; const out: string[] = []; for (const [size, label] of [[86400, '天'], [3600, '小时'], [60, '分钟'], [1, '秒']] as const) { const count = Math.floor(rest / size); if (count) out.push(`${count} ${label}`); rest %= size } return `每隔 ${out.join(' ') || '0 秒'}` }
 function deviceName(id: string) { return devices.value.find((row) => row.id === id)?.name || id }
 function taskState(row: ScheduleTask) { return String(row.state || row.status || 'paused') }
@@ -72,15 +72,15 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <div class="tasks-page"><PageHeader title="定时任务" subtitle="按指定时间或固定间隔发送短信"><template #actions><a-button type="primary" :disabled="!devices.length" @click="openEdit()">新增任务</a-button></template></PageHeader>
-    <section class="task-summary"><article><span>进行中的任务</span><strong>{{ activeCount }}</strong></article><article><span>已暂停的任务</span><strong>{{ pausedCount }}</strong></article><article><span>最近执行时间 · 北京时间</span><strong>{{ nextTask ? formatTime(nextTask.next_run) : '暂无安排' }}</strong></article></section>
+    <section class="task-summary"><article><span>进行中的任务</span><strong>{{ activeCount }}</strong></article><article><span>已暂停的任务</span><strong>{{ pausedCount }}</strong></article><article><span>下次执行时间 · 北京时间</span><strong>{{ nextTask ? formatTime(nextTask.next_run) : '暂无安排' }}</strong></article></section>
     <section class="task-section"><div class="section-title"><h2>全部任务（{{ tasks.length }}）</h2><span class="muted">北京时间（UTC+8）</span></div><p class="task-footnote">新建或修改任务后默认暂停。错过的执行时间不集中补发；发送失败或结果不确定时自动暂停，详情可查看执行记录。</p><a-spin :spinning="loading"><EmptyState v-if="!tasks.length" title="还没有定时任务" :description="devices.length ? '创建任务后点击开始即可启用。' : '请先在设备管理中添加发信设备。'" icon="calendar-schedule-line" /><div v-else class="task-list"><article v-for="row in tasks" :key="row.id" class="task-card"><header><div><h3>{{ row.name }}</h3><span class="pill" :class="{ success: taskState(row) === 'active' }">{{ taskState(row) === 'active' ? '进行中' : taskState(row) === 'completed' ? '已完成' : '已暂停' }}</span></div><div class="row-actions"><a-button class="ghost-button" @click="action(row, taskState(row) === 'active' ? 'pause' : 'start')">{{ taskState(row) === 'active' ? '暂停' : '开始' }}</a-button><a-button class="ghost-button" @click="openEdit(row)">修改</a-button><a-button class="ghost-button" @click="history(row)">记录</a-button><a-button class="ghost-button danger" @click="remove(row)">删除</a-button></div></header><div class="task-grid"><div><span>发信设备</span><strong>{{ deviceName(row.device_id) }}</strong></div><div><span>收信号码</span><strong>{{ row.phone }}</strong></div><div><span>执行规则</span><strong>{{ row.mode === 'once' ? '指定时间 · 仅一次' : intervalText(Number(row.interval_seconds || 0)) }}</strong></div><div><span>下次执行时间</span><strong>{{ formatTime(row.next_run) }}</strong></div></div><p>{{ row.message }}</p><small>{{ row.last_result || row.last_status || '等待开始' }}<template v-if="row.last_run"> · 最近执行 {{ formatTime(row.last_run) }} · 已提交 {{ row.run_count || 0 }} 次</template></small></article></div></a-spin></section>
 
     <a-modal v-model:open="editOpen" wrap-class-name="task-editor-modal" :width="720" :title="editing ? '修改任务' : '新增任务'" :confirm-loading="busy" ok-text="保存任务" cancel-text="取消" @ok="save">
       <a-form class="task-editor" layout="vertical">
         <div class="task-editor-grid">
           <a-form-item class="task-name-field" label="任务名称" required><a-input v-model:value="form.name" :maxlength="80" placeholder="例如：每日提醒" /></a-form-item>
-          <a-form-item label="发信设备" required><a-select v-model:value="form.device_id" placeholder="请选择设备"><a-select-option v-for="device in devices" :key="device.id" :value="device.id">{{ device.name || device.id }} · {{ device.running ? '在线' : '离线' }}</a-select-option></a-select></a-form-item>
-          <a-form-item label="收信号码" required><a-input v-model:value="form.phone" :maxlength="24" placeholder="例如：+8613800138000" /></a-form-item>
+          <a-form-item label="发信设备" required><a-select v-model:value="form.device_id" placeholder="请选择设备" :options="devices.map((device) => ({ value: device.id, label: `${device.name || device.id} · ${device.running ? '在线' : '离线'}` }))" /></a-form-item>
+          <a-form-item label="收信号码" required><a-input v-model:value="form.phone" :maxlength="24" placeholder="例如：+12025550123" /></a-form-item>
         </div>
 
         <a-form-item class="message-field" required>

@@ -1,0 +1,504 @@
+//go:build darwin && cgo
+
+package main
+
+/*
+#cgo pkg-config: libusb-1.0
+#include <stdlib.h>
+#include <libusb.h>
+*/
+import "C"
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+	"unsafe"
+)
+
+const (
+	djiUSBVendorID      = 0x2ca3
+	djiUSBProductID     = 0x4006
+	quectelUSBVendorID  = 0x2c7c
+	quectelUSBProductID = 0x0125
+)
+
+// usbModuleIdentity enumerates the two USB identities used by the first-gen
+// DJI/QDC507 module. The Quectel identity is the documented UAC/ADB layout;
+// accepting both prevents the local controller from losing its modem after a
+// deliberate, verified USB composition recovery.
+type usbModuleIdentity struct {
+	vendorID  int
+	productID int
+}
+
+func (i usbModuleIdentity) String() string {
+	return fmt.Sprintf("%04x:%04x", i.vendorID, i.productID)
+}
+
+var supportedUSBModuleIdentities = []usbModuleIdentity{
+	{vendorID: djiUSBVendorID, productID: djiUSBProductID},
+	{vendorID: quectelUSBVendorID, productID: quectelUSBProductID},
+}
+
+func isSupportedUSBModuleIdentity(vendorID, productID int) bool {
+	for _, candidate := range supportedUSBModuleIdentities {
+		if candidate.vendorID == vendorID && candidate.productID == productID {
+			return true
+		}
+	}
+	return false
+}
+
+func openSupportedUSBModuleDevice(ctx *C.libusb_context) (*C.libusb_device_handle, usbModuleIdentity) {
+	return openSupportedUSBModuleDeviceAtLocation(ctx, 0)
+}
+
+func openSupportedUSBModuleDeviceAtLocation(ctx *C.libusb_context, requiredLocation uint32) (*C.libusb_device_handle, usbModuleIdentity) {
+	var devices **C.libusb_device
+	count := C.libusb_get_device_list(ctx, &devices)
+	if count < 0 {
+		return nil, usbModuleIdentity{}
+	}
+	defer C.libusb_free_device_list(devices, 1)
+	list := unsafe.Slice(devices, int(count))
+	for _, identity := range supportedUSBModuleIdentities {
+		for _, device := range list {
+			var descriptor C.struct_libusb_device_descriptor
+			if C.libusb_get_device_descriptor(device, &descriptor) != 0 ||
+				int(descriptor.idVendor) != identity.vendorID || int(descriptor.idProduct) != identity.productID {
+				continue
+			}
+			if requiredLocation != 0 && libusbDarwinLocationID(device) != requiredLocation {
+				continue
+			}
+			var handle *C.libusb_device_handle
+			if C.libusb_open(device, &handle) == 0 && handle != nil {
+				return handle, identity
+			}
+		}
+	}
+	return nil, usbModuleIdentity{}
+}
+
+func libusbDarwinLocationID(device *C.libusb_device) uint32 {
+	bus := uint32(C.libusb_get_bus_number(device))
+	var ports [7]C.uint8_t
+	count := int(C.libusb_get_port_numbers(device, &ports[0], C.int(len(ports))))
+	if count < 1 || count > len(ports) {
+		return 0
+	}
+	location := bus << 24
+	for index := 0; index < count && index < 6; index++ {
+		location |= uint32(ports[index]&0x0f) << uint(20-index*4)
+	}
+	return location
+}
+
+type usbAT struct {
+	ctx         *C.libusb_context
+	handle      *C.libusb_device_handle
+	identity    usbModuleIdentity
+	locationID  uint32
+	iface       int
+	endpointIn  byte
+	endpointOut byte
+	mu          sync.Mutex
+}
+
+type usbATCandidate struct {
+	iface       int
+	endpointIn  byte
+	endpointOut byte
+}
+
+func openDJIUSBAT() (*usbAT, error) {
+	return openDJIUSBATAtLocation(0)
+}
+
+// openDJIUSBATAtLocation binds AT control to one physical USB port.  A module
+// setup transaction must never fall back to another matching modem after a
+// CFUN re-enumeration, because doing so could verify or roll back the wrong
+// device.
+func openDJIUSBATAtLocation(requiredLocation uint32) (*usbAT, error) {
+	var ctx *C.libusb_context
+	if rc := C.libusb_init(&ctx); rc != 0 {
+		return nil, fmt.Errorf("libusb init: %s", usbErrorName(rc))
+	}
+	handle, identity := openSupportedUSBModuleDeviceAtLocation(ctx, requiredLocation)
+	if handle == nil {
+		C.libusb_exit(ctx)
+		if requiredLocation != 0 {
+			return nil, fmt.Errorf("DJI/Quectel USB AT device not found at location 0x%08x", requiredLocation)
+		}
+		return nil, errors.New("DJI/Quectel USB AT device (2ca3:4006 or 2c7c:0125) not found")
+	}
+	candidates, err := usbATCandidates(handle)
+	if err != nil {
+		C.libusb_close(handle)
+		C.libusb_exit(ctx)
+		return nil, err
+	}
+	var lastErr error
+	for _, candidate := range candidates {
+		if rc := C.libusb_claim_interface(handle, C.int(candidate.iface)); rc != 0 {
+			lastErr = fmt.Errorf("claim USB AT interface %d: %s", candidate.iface, usbErrorName(rc))
+			continue
+		}
+		dev := &usbAT{
+			ctx:         ctx,
+			handle:      handle,
+			identity:    identity,
+			locationID:  libusbDarwinLocationID(C.libusb_get_device(handle)),
+			iface:       candidate.iface,
+			endpointIn:  candidate.endpointIn,
+			endpointOut: candidate.endpointOut,
+		}
+		if response, err := dev.Command("AT", 900*time.Millisecond); err == nil && atProbeSucceeded(response) {
+			return dev, nil
+		} else {
+			if err == nil {
+				err = fmt.Errorf("unexpected AT probe response %q", response)
+			}
+			lastErr = fmt.Errorf("probe USB AT interface %d out 0x%02x in 0x%02x: %w",
+				candidate.iface, candidate.endpointOut, candidate.endpointIn, err)
+		}
+		C.libusb_release_interface(handle, C.int(candidate.iface))
+	}
+	C.libusb_close(handle)
+	C.libusb_exit(ctx)
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, errors.New("no USB bulk interface candidates found for DJI AT bridge")
+}
+
+func (u *usbAT) LocationID() uint32 {
+	if u == nil {
+		return 0
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.locationID
+}
+
+func (u *usbAT) PhysicalIdentity() usbATPhysicalIdentity {
+	if u == nil {
+		return usbATPhysicalIdentity{}
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return usbATPhysicalIdentity{VendorID: u.identity.vendorID, ProductID: u.identity.productID, Location: u.locationID}
+}
+
+func usbATCandidates(handle *C.libusb_device_handle) ([]usbATCandidate, error) {
+	dev := C.libusb_get_device(handle)
+	if dev == nil {
+		return nil, errors.New("libusb device handle has no device")
+	}
+	var config *C.struct_libusb_config_descriptor
+	if rc := C.libusb_get_active_config_descriptor(dev, &config); rc != 0 {
+		return nil, fmt.Errorf("get active USB config descriptor: %s", usbErrorName(rc))
+	}
+	defer C.libusb_free_config_descriptor(config)
+
+	var candidates []usbATCandidate
+	interfaces := unsafe.Slice(config._interface, int(config.bNumInterfaces))
+	for _, intf := range interfaces {
+		altsettings := unsafe.Slice(intf.altsetting, int(intf.num_altsetting))
+		for _, alt := range altsettings {
+			var endpointIn, endpointOut byte
+			endpoints := unsafe.Slice(alt.endpoint, int(alt.bNumEndpoints))
+			for _, ep := range endpoints {
+				attrs := byte(ep.bmAttributes) & byte(C.LIBUSB_TRANSFER_TYPE_MASK)
+				if attrs != byte(C.LIBUSB_TRANSFER_TYPE_BULK) {
+					continue
+				}
+				addr := byte(ep.bEndpointAddress)
+				if addr&byte(C.LIBUSB_ENDPOINT_IN) != 0 {
+					endpointIn = addr
+				} else {
+					endpointOut = addr
+				}
+			}
+			if endpointIn != 0 && endpointOut != 0 {
+				candidates = append(candidates, usbATCandidate{
+					iface:       int(alt.bInterfaceNumber),
+					endpointIn:  endpointIn,
+					endpointOut: endpointOut,
+				})
+			}
+		}
+	}
+	return candidates, nil
+}
+
+func (u *usbAT) Close() {
+	if u == nil {
+		return
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.handle == nil {
+		return
+	}
+	C.libusb_release_interface(u.handle, C.int(u.iface))
+	C.libusb_close(u.handle)
+	C.libusb_exit(u.ctx)
+	u.handle = nil
+	u.ctx = nil
+}
+
+func (u *usbAT) Command(cmd string, timeout time.Duration) (string, error) {
+	if u == nil {
+		return "", errors.New("USB AT device is not open")
+	}
+	cmd, timeout, err := validateUSBATCommand(cmd, timeout)
+	if err != nil {
+		return "", err
+	}
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.handle == nil {
+		return "", errors.New("USB AT device is not open")
+	}
+	return u.commandLocked(cmd, timeout)
+}
+
+// WithExclusiveCommands keeps one physical libusb handle locked for an entire
+// validate-then-write sequence. The callback must be short and must only use
+// the supplied command function for AT traffic.
+func (u *usbAT) WithExclusiveCommands(operation func(usbATCommandFunc) error) error {
+	if u == nil {
+		return errors.New("USB AT device is not open")
+	}
+	if operation == nil {
+		return errors.New("USB AT command operation is nil")
+	}
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.handle == nil {
+		return errors.New("USB AT device is not open")
+	}
+	return operation(func(command string, timeout time.Duration) (string, error) {
+		command, timeout, err := validateUSBATCommand(command, timeout)
+		if err != nil {
+			return "", err
+		}
+		if u.handle == nil {
+			return "", errors.New("USB AT device is not open")
+		}
+		return u.commandLocked(command, timeout)
+	})
+}
+
+func validateUSBATCommand(command string, timeout time.Duration) (string, time.Duration, error) {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "", 0, errors.New("AT command is empty")
+	}
+	if !strings.HasPrefix(strings.ToUpper(command), "AT") {
+		return "", 0, errors.New("command must start with AT")
+	}
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+	return command, timeout, nil
+}
+
+func (u *usbAT) commandLocked(cmd string, timeout time.Duration) (string, error) {
+	u.drainLocked()
+	payload := []byte(cmd + "\r")
+	if err := u.bulkWriteLocked(u.endpointOut, payload, timeout); err != nil {
+		return "", err
+	}
+
+	deadline := time.Now().Add(timeout)
+	var chunks []string
+	for time.Now().Before(deadline) {
+		remaining := time.Until(deadline)
+		if remaining > 900*time.Millisecond {
+			remaining = 900 * time.Millisecond
+		}
+		data, err := u.bulkReadLocked(u.endpointIn, remaining)
+		if err != nil {
+			if errors.Is(err, errUSBTimeout) {
+				continue
+			}
+			return strings.Join(chunks, ""), err
+		}
+		if len(data) == 0 {
+			continue
+		}
+		chunks = append(chunks, string(data))
+		joined := strings.Join(chunks, "")
+		if atResponseComplete(joined) {
+			return normalizeATResponse(joined), nil
+		}
+	}
+	if len(chunks) == 0 {
+		return "", errors.New("USB AT command timed out without response")
+	}
+	return normalizeATResponse(strings.Join(chunks, "")), nil
+}
+
+// CommandWithPrompt executes an AT command that enters an interactive input
+// state, then submits followUp after the modem returns its ">" prompt.
+func (u *usbAT) CommandWithPrompt(cmd string, followUp []byte, timeout time.Duration) (string, error) {
+	if u == nil {
+		return "", errors.New("USB AT device is not open")
+	}
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return "", errors.New("AT command is empty")
+	}
+	if !strings.HasPrefix(strings.ToUpper(cmd), "AT") {
+		return "", errors.New("command must start with AT")
+	}
+	if len(followUp) == 0 {
+		return "", errors.New("interactive AT follow-up is empty")
+	}
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.handle == nil {
+		return "", errors.New("USB AT device is not open")
+	}
+
+	u.drainLocked()
+	if err := u.bulkWriteLocked(u.endpointOut, []byte(cmd+"\r"), timeout); err != nil {
+		return "", err
+	}
+
+	deadline := time.Now().Add(timeout)
+	var response strings.Builder
+	promptReceived := false
+	for time.Now().Before(deadline) {
+		remaining := time.Until(deadline)
+		if remaining > 900*time.Millisecond {
+			remaining = 900 * time.Millisecond
+		}
+		data, err := u.bulkReadLocked(u.endpointIn, remaining)
+		if err != nil {
+			if errors.Is(err, errUSBTimeout) {
+				continue
+			}
+			return normalizeATResponse(response.String()), err
+		}
+		if len(data) == 0 {
+			continue
+		}
+		response.Write(data)
+		joined := response.String()
+
+		if !promptReceived {
+			if atResponseIsError(joined) {
+				return normalizeATResponse(joined), nil
+			}
+			if !atResponseHasPrompt(joined) {
+				continue
+			}
+			if err := u.bulkWriteLocked(u.endpointOut, followUp, time.Until(deadline)); err != nil {
+				return normalizeATResponse(joined), err
+			}
+			promptReceived = true
+			continue
+		}
+
+		if atResponseComplete(joined) {
+			return normalizeATResponse(joined), nil
+		}
+	}
+
+	if promptReceived {
+		// ESC cancels a pending message editor on modems that still accept input.
+		_ = u.bulkWriteLocked(u.endpointOut, []byte{0x1b}, 300*time.Millisecond)
+	}
+	if response.Len() == 0 {
+		return "", errors.New("USB interactive AT command timed out without response")
+	}
+	return normalizeATResponse(response.String()), errors.New("USB interactive AT command timed out before completion")
+}
+
+var errUSBTimeout = errors.New("usb timeout")
+
+func (u *usbAT) drainLocked() {
+	for {
+		if _, err := u.bulkReadLocked(u.endpointIn, 80*time.Millisecond); err != nil {
+			return
+		}
+	}
+}
+
+func (u *usbAT) Description() string {
+	if u == nil {
+		return "USB AT"
+	}
+	return fmt.Sprintf("USB AT · %s interface %d out 0x%02x in 0x%02x",
+		u.identity.String(), u.iface, u.endpointOut, u.endpointIn)
+}
+
+func (u *usbAT) bulkWriteLocked(endpoint byte, payload []byte, timeout time.Duration) error {
+	var transferred C.int
+	ptr := unsafe.Pointer(&payload[0])
+	rc := C.libusb_bulk_transfer(
+		u.handle,
+		C.uchar(endpoint),
+		(*C.uchar)(ptr),
+		C.int(len(payload)),
+		&transferred,
+		C.uint(timeout.Milliseconds()),
+	)
+	if rc != 0 {
+		return fmt.Errorf("USB bulk write: %s", usbErrorName(rc))
+	}
+	if int(transferred) != len(payload) {
+		return fmt.Errorf("USB bulk write short transfer: %d/%d", int(transferred), len(payload))
+	}
+	return nil
+}
+
+func (u *usbAT) bulkReadLocked(endpoint byte, timeout time.Duration) ([]byte, error) {
+	buf := make([]byte, 512)
+	var transferred C.int
+	rc := C.libusb_bulk_transfer(
+		u.handle,
+		C.uchar(endpoint),
+		(*C.uchar)(unsafe.Pointer(&buf[0])),
+		C.int(len(buf)),
+		&transferred,
+		C.uint(timeout.Milliseconds()),
+	)
+	if rc == C.LIBUSB_ERROR_TIMEOUT {
+		return nil, errUSBTimeout
+	}
+	if rc != 0 {
+		return nil, fmt.Errorf("USB bulk read: %s", usbErrorName(rc))
+	}
+	return buf[:int(transferred)], nil
+}
+
+func usbErrorName(rc C.int) string {
+	return C.GoString(C.libusb_error_name(rc))
+}
+
+func normalizeATResponse(resp string) string {
+	resp = strings.ReplaceAll(resp, "\r\r\n", "\r\n")
+	resp = strings.TrimSpace(resp)
+	lines := strings.Split(resp, "\n")
+	filtered := lines[:0]
+	for _, line := range lines {
+		line = strings.TrimRight(line, "\r")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	return strings.Join(filtered, "\r\n")
+}

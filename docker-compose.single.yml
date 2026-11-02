@@ -8,16 +8,21 @@ services:
     init: true
     read_only: true
     cap_drop: [ALL]
-    cap_add: [SYS_MODULE, SETPCAP, DAC_OVERRIDE]
+    # NET_ADMIN lets the modem core configure a connected cellular interface.
+    # Its route uses metric 5000 and DNS is left unchanged, so the NAS LAN
+    # route remains preferred. NET_RAW binds Network Debug sockets to it.
+    cap_add: [SYS_MODULE, SETPCAP, DAC_OVERRIDE, NET_ADMIN, NET_RAW]
     security_opt: [no-new-privileges:true]
-    ports:
-      - "${VOHIVE_BIND_IP:-127.0.0.1}:7575:7575"
+    network_mode: host
     environment:
       TZ: Asia/Shanghai
       CONFIG_PATH: /app/config/config.yaml
+      # Optional: set an explicit ALSA capture device such as hw:1,0.
+      VOHIVEX_CALL_AUDIO_DEVICE: ${VOHIVEX_CALL_AUDIO_DEVICE:-}
     device_cgroup_rules:
       - c 188:* rw
       - c 180:* rw
+      - c 116:* rw
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=16m
     volumes:
@@ -37,7 +42,7 @@ services:
       - /dev:/dev
       - /sys:/sys:ro
     healthcheck:
-      test: [CMD-SHELL, '/bin/sh /opt/vohivex/driver.sh health && wget -q --spider http://127.0.0.1:7575/']
+      test: [CMD-SHELL, '/bin/sh /opt/vohivex/driver.sh container-health && wget -q --spider http://127.0.0.1:7575/']
       interval: 10s
       timeout: 5s
       retries: 6

@@ -56,6 +56,14 @@ VoHiveX is a personal modem management and testing platform derived from VoHive.
 - Includes a three-column SMS center with conversation search, unread state, delivery status, multi-select actions, and CSV/TXT/HTML/XML import and export.
 - Offers a local Swagger UI at `/api/docs`, health checks at `/healthz`, and Prometheus-compatible metrics at `/metrics`.
 
+### Phone, contacts, and call recordings
+
+- Adds a responsive phone center for dialing, answering, rejecting, hanging up, and sending DTMF through the selected modem's AT interface.
+- Stores contacts and reconciles incoming, outgoing, missed, failed, and completed calls into a local call history database.
+- Can save WAV recordings when the module exposes a recognized ALSA capture device to the container. Set `VOHIVEX_CALL_AUDIO_DEVICE=hw:<card>,<device>` only when automatic modem-audio detection cannot identify the correct capture path.
+- An optional macOS USB bridge adds browser microphone/playback, mute, listen-only mode and stereo WAV recording for the tested QDC507 audio runtime. See [native call bridge](call-bridge/README.md). VoWiFi call/media support remains experimental and is not enabled by the production container.
+- Network Debug supports explicit authenticated cellular relays and a dedicated instance of the bundled Mihomo for subscription-proxy browsing. See [cellular relay configuration](call-bridge/NETWORK-RELAY.md). Runtime credentials and real subscriber data must stay outside the repository.
+
 ## Supported architectures and modem paths
 
 | Component | Supported targets |

@@ -80,7 +80,10 @@ func deviceModemText(device map[string]any, key string) string {
 		return value
 	}
 	if modem, ok := device["modem"].(map[string]any); ok {
-		return strings.TrimSpace(fmt.Sprint(modem[key]))
+		value := strings.TrimSpace(fmt.Sprint(modem[key]))
+		if value != "<nil>" {
+			return value
+		}
 	}
 	return ""
 }

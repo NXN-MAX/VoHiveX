@@ -34,7 +34,7 @@ LABEL org.opencontainers.image.source="https://github.com/NXN-MAX/VoHiveX" \
       org.opencontainers.image.title="VoHiveX" \
       org.opencontainers.image.version="2.1.4"
 # Packages are installed inside this image only, never into the host system.
-RUN apk add --no-cache ca-certificates tzdata setpriv libqmi
+RUN apk add --no-cache ca-certificates tzdata setpriv libqmi alsa-utils
 WORKDIR /app
 COPY --from=binaries /out/vohive /app/vohive
 COPY --from=binaries /out/mihomo /opt/vohivex/proxy/mihomo

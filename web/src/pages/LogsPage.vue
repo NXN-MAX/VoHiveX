@@ -8,6 +8,8 @@ import { normalizeLogResponse } from '@/utils/logs'
 const lines = ref<string[]>([])
 const initialLoading = ref(true)
 const paused = ref(false)
+const clearing = ref(false)
+const connected = ref(false)
 const wrap = ref(localStorage.getItem('vohivex:logs-wrap') !== '0')
 const tail = ref(localStorage.getItem('vohivex:logs-tail') !== '0')
 const query = ref('')
@@ -15,6 +17,7 @@ const level = ref('all')
 const consoleEl = ref<HTMLDivElement>()
 let timer = 0
 let requestInFlight = false
+let logGeneration = 0
 const parsedLines = computed(() => lines.value.map((line) => parseLine(line)).filter((line) => {
   const levelMatch = level.value === 'all' || line.level.toLowerCase() === level.value
   const queryMatch = !query.value || line.raw.toLowerCase().includes(query.value.toLowerCase())
@@ -41,10 +44,14 @@ async function scrollToEnd() {
 }
 
 async function load() {
-  if (paused.value || requestInFlight) return
+  if (paused.value || clearing.value || requestInFlight) return
+  const generation = logGeneration
   requestInFlight = true
   try {
     const data = await request<any>({ url: '/logs/history', params: { lines: 500 } })
+    if (generation !== logGeneration || paused.value) return
+    if (data?.error) throw new Error(data.error)
+    connected.value = true
     const nextLines = normalizeLogResponse(data)
     const changed = nextLines.length !== lines.value.length || nextLines.some((line, index) => line !== lines.value[index])
     if (changed) {
@@ -52,10 +59,27 @@ async function load() {
       await scrollToEnd()
     }
   } catch (reason) {
+    if (generation !== logGeneration) return
+    connected.value = false
     message.error(apiError(reason).message)
   } finally {
     initialLoading.value = false
     requestInFlight = false
+  }
+}
+
+async function clearLogs() {
+  if (clearing.value) return
+  clearing.value = true
+  logGeneration++
+  try {
+    await request({ method: 'DELETE', url: '/logs/history' })
+    lines.value = []
+    message.success('日志已清空')
+  } catch (reason) {
+    message.error(apiError(reason).message)
+  } finally {
+    clearing.value = false
   }
 }
 
@@ -75,14 +99,14 @@ function togglePaused() {
   if (!paused.value) void load()
 }
 onMounted(() => { load(); timer = window.setInterval(load, 5000) })
-onBeforeUnmount(() => window.clearInterval(timer))
+onBeforeUnmount(() => { window.clearInterval(timer); logGeneration++ })
 </script>
 
 <template>
   <div class="logs-page">
     <PageHeader title="实时日志" subtitle="查看系统运行日志，支持过滤和搜索">
       <template #actions>
-        <a-button class="ghost-button danger" @click="lines = []">清空</a-button>
+        <a-button class="ghost-button danger" :loading="clearing" @click="clearLogs">清空</a-button>
         <a-button class="ghost-button" @click="exportLog">导出</a-button>
         <a-button class="log-toggle" :class="paused ? 'resume' : 'pause'" @click="togglePaused">{{ paused ? '继续' : '暂停' }}</a-button>
       </template>
@@ -93,7 +117,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
         <a-input v-model:value="query" allow-clear placeholder="搜索日志内容..." />
       </div>
       <div class="log-meta">
-        <span class="connection-state"><span class="status-dot" :class="paused ? 'paused' : 'online'" />{{ paused ? '已暂停' : '已连接' }}</span>
+        <span class="connection-state"><span class="status-dot" :class="paused ? 'paused' : connected ? 'online' : 'offline'" />{{ paused ? '已暂停' : connected ? '已连接' : '未连接' }}</span>
         <span>{{ lines.length }} 条日志</span>
         <label><input v-model="tail" type="checkbox" @change="persistTail" />自动追尾</label>
         <label><input v-model="wrap" type="checkbox" @change="persistWrap" />自动换行</label>

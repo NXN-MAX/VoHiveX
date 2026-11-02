@@ -8,7 +8,13 @@ export default defineConfig(({ mode }) => {
   const demo = env.VOHIVEX_DEMO === '1'
   const apiTarget = env.VITE_API_TARGET || 'http://127.0.0.1:7575'
   return {
-    plugins: [vue(), ...(demo ? [demoApi()] : [])],
+    plugins: [vue(), {
+      name: 'vohivex-build-info',
+      apply: 'build',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: 'build-info.json', source: JSON.stringify({ build_time: new Date().toISOString() }) })
+      },
+    }, ...(demo ? [demoApi()] : [])],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -31,7 +37,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 18765,
       proxy: demo ? undefined : {
-        '/api': apiTarget,
+        '/api': { target: apiTarget, ws: true, changeOrigin: false },
         '/healthz': apiTarget,
         '/metrics': apiTarget,
       },

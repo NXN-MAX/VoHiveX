@@ -239,6 +239,10 @@ func TestMergeOpenAPIAddsGatewayAndLegacyPaths(t *testing.T) {
 		"/schedules",
 		"/managed-proxy",
 		"/sms/archive/import",
+		"/calls/status",
+		"/calls/dial",
+		"/calls/contacts",
+		"/calls/recordings",
 		"/settings/username",
 		"/settings/system",
 	} {

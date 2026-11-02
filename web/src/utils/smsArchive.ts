@@ -23,20 +23,20 @@ export function normalizeMessages(rows: Record<string, unknown>[]) {
 
 function parseDelimited(text: string, delimiter: string) {
   const rows: string[][] = []; let row: string[] = []; let field = ''; let quoted = false; const source = text.replace(/^\uFEFF/, '')
-  for (let index = 0; index < source.length; index++) { const char = source[index]; if (quoted) { if (char === '"' && source[index + 1] === '"') { field += '"'; index++ } else if (char === '"') quoted = false; else field += char; continue } if (char === '"') quoted = true; else if (char === delimiter) { row.push(field); field = '' } else if (char === '\n') { row.push(field); rows.push(row); row = []; field = '' } else if (char !== '\r') field += char }
+  for (let index = 0; index < source.length; index++) { const char = source[index]; if (quoted) { if (char === '"' && source[index + 1] === '"') { field += '"'; index++ } else if (char === '"') quoted = false; else field += char; continue } if (char === '"' && !field) quoted = true; else if (char === delimiter) { row.push(field); field = '' } else if (char === '\n') { row.push(field); rows.push(row); row = []; field = '' } else if (char !== '\r') field += char }
   row.push(field); if (row.some(Boolean)) rows.push(row); if (rows.length < 2) throw new Error('文件中没有短信数据')
   const headers = rows.shift()!.map(clean)
   return normalizeMessages(rows.filter((values) => values.some(Boolean)).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']))))
 }
 const escapeXml = (value: unknown) => String(value ?? '').replace(/[<>&"']/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char]!)
-const csvCell = (value: unknown) => { const text = String(value ?? ''); return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text }
+const csvCell = (value: unknown) => { const text = String(value ?? ''); return /[",\t\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text }
 function fieldValue(row: Record<string, any>, field: string) { if (field === 'direction') return Number(row.type) === 2 || row.outgoing ? 'sent' : 'received'; return row[field] ?? (field === 'content' ? row.text : field === 'message_id' ? row.id : '') }
 
 export function serializeMessages(rows: Record<string, any>[], format: string) {
   if (!rows.length) throw new Error('没有可导出的短信')
   const normalized = rows.map((row) => Object.fromEntries(fields.map((field) => [field, fieldValue(row, field)])))
   if (format === 'csv') return '\uFEFF' + [fields.join(','), ...normalized.map((row) => fields.map((field) => csvCell(row[field])).join(','))].join('\r\n')
-  if (format === 'txt') return [fields.join('\t'), ...normalized.map((row) => fields.map((field) => String(row[field] ?? '').replace(/[\t\r\n]+/g, ' ')).join('\t'))].join('\n')
+  if (format === 'txt') return [fields.join('\t'), ...normalized.map((row) => fields.map((field) => csvCell(row[field])).join('\t'))].join('\n')
   if (format === 'html') return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>VoHiveX 短信归档</title></head><body><table><thead><tr>${fields.map((field) => `<th>${field}</th>`).join('')}</tr></thead><tbody>${normalized.map((row) => `<tr>${fields.map((field) => `<td>${escapeXml(row[field])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`
   if (format === 'xml') return `<?xml version="1.0" encoding="UTF-8"?>\n<smsArchive version="1">\n${normalized.map((row) => `  <message>${fields.map((field) => `<${field}>${escapeXml(row[field])}</${field}>`).join('')}</message>`).join('\n')}\n</smsArchive>`
   throw new Error('不支持的导出格式')

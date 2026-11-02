@@ -9,6 +9,7 @@ import RiIcon from '@/components/RiIcon.vue'
 import TrafficAnalysisPanel from '@/components/TrafficAnalysisPanel.vue'
 import { apiError, http, request } from '@/api/http'
 import type { Device } from '@/types/domain'
+import { cellularRegistration } from '@/utils/cellular'
 import { formatSimOperator } from '@/utils/simOperator'
 
 const route = useRoute()
@@ -30,20 +31,27 @@ const detailDevice = computed<Record<string, any>>(() => {
 })
 const detailModem = computed<Record<string, any>>(() => detailDevice.value.modem || {})
 const detailRuntime = computed<Record<string, any>>(() => detailDevice.value.vowifi_runtime || {})
+const detailLocalPhone = computed(() => firstText(
+  detailDevice.value.local_phone,
+  detailDevice.value.msisdn,
+  detailModem.value.local_phone,
+  detailModem.value.msisdn,
+))
+const activeEsimName = computed(() => {
+  const value = firstText(detailDevice.value.active_esim_profile_name)
+  return ['-', '—', '--', '<nil>', 'null', 'undefined'].includes(value.toLowerCase()) ? '' : value
+})
 const detailHealthy = computed(() => Boolean(detailDevice.value.healthy))
 const detailNetworkEnabled = computed(() => Boolean(detailDevice.value.network_enabled))
 const detailNetworkConnected = computed(() => Boolean(detailDevice.value.network_connected))
 const detailVowifiActive = computed(() => Boolean(detailDevice.value.vowifi_active))
 const detailOperator = computed(() => String(detailModem.value.operator || detailDevice.value.operator || '—'))
+const detailRegistration = computed(() => cellularRegistration(detailDevice.value))
+const detailNetworkRegistered = computed(() => detailRegistration.value.state === 'registered')
+const detailRegistrationText = computed(() => detailRegistration.value.label)
 const detailNetworkMode = computed(() => {
   const mode = [detailModem.value.network_duplex, detailModem.value.network_mode].filter(Boolean).join(' ')
-  return mode || (detailVowifiActive.value ? 'Wi-Fi Calling' : detailNetworkConnected.value ? '蜂窝网络' : '未驻网')
-})
-const detailNetworkRegistered = computed(() => {
-  const status = Number(detailModem.value.reg_status ?? detailModem.value.registration_status)
-  if ([1, 5].includes(status)) return true
-  const text = String(detailModem.value.reg_status_text || '').trim()
-  return text.includes('已注册') || /\b(registered|home|roaming)\b/i.test(text)
+  return mode || (detailVowifiActive.value ? 'Wi-Fi Calling' : detailNetworkRegistered.value ? '蜂窝网络' : '未驻网')
 })
 const detailSignal = computed(() => {
   const value = Number(detailModem.value.signal_dbm ?? detailDevice.value.signal_dbm ?? -999)
@@ -75,9 +83,10 @@ const runtimeSummary = computed(() => {
   if (states.some((item) => item === true)) return `${serviceStages.value.filter((item) => item.ok !== true).map((item) => item.label).join(' · ')} 未就绪`
   if (detailDevice.value.vowifi_enabled) return 'VoWiFi 未连接'
   if (!detailHealthy.value) return '设备离线'
-  if (detailNetworkConnected.value) return '蜂窝网络 · 已连接'
-  if (detailNetworkEnabled.value && detailNetworkRegistered.value) return '蜂窝网络 · 已开启'
-  return detailNetworkEnabled.value ? '蜂窝网络 · 等待连接' : '蜂窝数据未开启'
+  if (detailNetworkConnected.value) return '蜂窝数据 · 已连接'
+  if (detailNetworkRegistered.value) return detailNetworkEnabled.value ? '蜂窝网络 · 已注册' : '蜂窝网络 · 已注册 · 数据未开启'
+  if (detailRegistration.value.state === 'searching') return '蜂窝网络 · 搜索中'
+  return detailNetworkEnabled.value ? '蜂窝数据 · 等待驻网' : '蜂窝数据未开启'
 })
 const simOperator = computed(() => formatSimOperator([detailDevice.value], detailOperator.value === '—' ? '' : detailOperator.value))
 const detailTrafficDisabledText = computed(() => !detailHealthy.value ? '设备离线，暂无流量分析' : '设备未连接网络，暂无流量分析')
@@ -89,6 +98,8 @@ const sortBy = ref<'name' | 'signal'>('name')
 const ascending = ref(true)
 const activeTab = ref(String(route.query.tab || 'overview'))
 let timer = 0
+let overviewRequestSeq = 0
+let esimRequestSeq = 0
 
 const addOpen = ref(false)
 const discovered = ref<Record<string, any>[]>([])
@@ -134,6 +145,7 @@ const policyBusy = ref(false)
 
 const esim = ref<{ chip_info?: Record<string, any>; profiles?: any[] }>({})
 const esimBusy = ref(false)
+const esimError = ref('')
 const esimDetected = computed(() => Boolean(
   esim.value.chip_info?.eid
   || esim.value.chip_info?.eids?.length
@@ -291,15 +303,30 @@ async function loadDevices(silent = false) {
 }
 
 async function loadOverview(silent = false) {
-  if (!selectedId.value) return
+  const deviceId = selectedId.value
+  if (!deviceId) return
+  const requestSeq = ++overviewRequestSeq
   if (!silent) detailLoading.value = true
   try {
-    const data = await request<any>({ url: `/devices/${selectedId.value}/overview` })
-    overview.value = data?.devices?.[0] || data || null
+    const data = await request<any>({ url: `/devices/${encodeURIComponent(deviceId)}/overview` })
+    if (requestSeq !== overviewRequestSeq || deviceId !== selectedId.value) return
+    const nextOverview = data?.devices?.[0] || data || null
+    const nextModem = nextOverview?.modem || {}
+    const iccid = String(nextModem.iccid || nextOverview?.iccid || '').trim()
+    if (iccid) {
+      try {
+        const cardPolicy = await request<any>({ url: `/cards/${encodeURIComponent(iccid)}/policy` })
+        if (requestSeq !== overviewRequestSeq || deviceId !== selectedId.value) return
+        if (typeof cardPolicy?.network_enabled === 'boolean') nextOverview.network_enabled = cardPolicy.network_enabled
+      } catch {
+        // Runtime state remains usable if the card policy is temporarily unavailable.
+      }
+    }
+    overview.value = nextOverview
   } catch (reason) {
-    if (!silent) message.error(apiError(reason).message)
+    if (requestSeq === overviewRequestSeq && deviceId === selectedId.value && !silent) message.error(apiError(reason).message)
   } finally {
-    if (!silent) detailLoading.value = false
+    if (requestSeq === overviewRequestSeq && deviceId === selectedId.value) detailLoading.value = false
   }
 }
 
@@ -330,6 +357,21 @@ async function runAction(label: string, config: Parameters<typeof request>[0], r
   } catch (reason) {
     message.error(apiError(reason).message)
   }
+}
+
+async function setCellularData(enabled: boolean) {
+  const deviceId = selectedId.value
+  if (!deviceId) return
+  await runAction(
+    enabled ? '开启蜂窝数据' : '关闭蜂窝数据',
+    {
+      method: 'PATCH',
+      url: `/devices/${encodeURIComponent(deviceId)}/network`,
+      // This endpoint controls the packet-data session only. It deliberately
+      // does not change flight mode, SIM registration or the SMS service.
+      data: { enabled },
+    },
+  )
 }
 
 async function rescan() {
@@ -486,19 +528,37 @@ async function savePolicy() {
 }
 
 async function loadEsim(refresh = false) {
-  if (!selectedId.value) return
+  const deviceId = selectedId.value
+  if (!deviceId) return
+  const requestSeq = ++esimRequestSeq
   esimBusy.value = true
+  esimError.value = ''
+  esim.value = {}
+  esimForm.aidHex = ''
   try {
-    esim.value = await request({ url: `/devices/${selectedId.value}/esim`, params: refresh ? { refresh: 1 } : undefined })
+    const value = await request<{ chip_info?: Record<string, any>; profiles?: any[] }>({
+      url: `/devices/${encodeURIComponent(deviceId)}/esim`,
+      params: refresh ? { refresh: 1 } : undefined,
+    })
+    if (requestSeq !== esimRequestSeq || deviceId !== selectedId.value) return
+    esim.value = value || {}
     for (const group of esim.value.profiles || []) {
       for (const profile of group.profiles || []) rememberProfilePhone(profile)
     }
     esimForm.imei = String(detailModem.value.imei || detailDevice.value.imei || '')
     esimForm.aidHex = String(esim.value.chip_info?.eids?.[0]?.aid || '')
   } catch (reason) {
-    message.error(apiError(reason).message)
+    if (requestSeq !== esimRequestSeq || deviceId !== selectedId.value) return
+    esim.value = {}
+    const error = apiError(reason)
+    if (/未发现任何\s*eUICC|no\s+eUICC|logical channel/i.test(error.message)) {
+      esimError.value = '当前设备未检测到可管理的 eUICC。实体 SIM 仍可正常驻网和收发短信。'
+    } else {
+      esimError.value = error.message
+      message.error(error.message)
+    }
   } finally {
-    esimBusy.value = false
+    if (requestSeq === esimRequestSeq && deviceId === selectedId.value) esimBusy.value = false
   }
 }
 
@@ -741,8 +801,19 @@ function confirmDeleteProfile(profile: any, group: any) {
 
 watch(selectedId, async (value) => {
   if (!value) return
+  overviewRequestSeq += 1
+  esimRequestSeq += 1
   router.replace({ query: { ...route.query, device: value, tab: activeTab.value } })
   overview.value = null
+  esim.value = {}
+  esimError.value = ''
+  esimBusy.value = false
+  policy.value = null
+  notifications.value = []
+  notificationsOpen.value = false
+  cancelProfileRename()
+  deletingProfile.value = ''
+  Object.assign(esimForm, { smdp: '', matchingId: '', confirmationCode: '', aidHex: '', imei: '' })
   await loadOverview()
   loadDeviceTraffic()
   if (activeTab.value === 'esim') loadEsim()
@@ -833,42 +904,47 @@ onBeforeUnmount(() => window.clearInterval(timer))
                       <div><span>Signal Strength</span><strong>{{ detailSignal }}</strong><small>RSRP {{ detailModem.signal_rsrp ?? '—' }} · RSRQ {{ detailModem.signal_rsrq ?? '—' }} · SINR {{ detailModem.signal_sinr ?? '—' }} · NR5G SINR {{ detailModem.nr5g_signal_sinr ?? '—' }}</small></div>
                       <div class="signal-bars" :class="{ weak: detailSignalBars > 0 && detailSignalBars <= 2 }" aria-hidden="true"><i v-for="bar in 5" :key="bar" :class="{ active: bar <= detailSignalBars }" /></div>
                     </div>
-                    <dl><dt>Network Mode</dt><dd>{{ detailNetworkMode }}</dd><dt>Band</dt><dd>{{ detailModem.radio_band || '—' }}</dd><dt>Channel</dt><dd>{{ detailModem.radio_channel || '—' }}</dd><dt>Registration</dt><dd>{{ detailModem.reg_status_text || '—' }}</dd></dl>
+                    <dl><dt>Network Mode</dt><dd>{{ detailNetworkMode }}</dd><dt>Band</dt><dd>{{ detailModem.radio_band || '—' }}</dd><dt>Channel</dt><dd>{{ detailModem.radio_channel || '—' }}</dd><dt>Registration</dt><dd>{{ detailRegistrationText }}</dd></dl>
                   </template>
                 </section>
 
                 <section class="white-panel info-card">
-                  <div class="card-heading"><div><h3>SIM / 设备信息</h3><p>识别信息与当前 Profile</p></div></div>
-                  <dl><template v-for="(value, key) in { IMEI: detailModem.imei, ICCID: detailModem.iccid, IMSI: detailModem.imsi, 本机号码: detailDevice.local_phone, 当前eSIM: detailDevice.active_esim_profile_name }" :key="key"><dt>{{ key }}</dt><dd :title="String(value || '')">{{ value || '—' }}</dd></template><dt>原运营商</dt><dd class="sim-operator" :title="simOperator.display"><span v-if="simOperator.flag" class="country-flag" aria-hidden="true">{{ simOperator.flag }}</span><span>{{ simOperator.display }}</span></dd><dt>固件</dt><dd :title="String(detailModem.firmware || '')">{{ detailModem.firmware || '—' }}</dd></dl>
+                  <div class="card-heading"><div><h3>SIM / 设备信息</h3><p>{{ activeEsimName ? '识别信息与当前 Profile' : 'SIM 与设备识别信息' }}</p></div></div>
+                  <dl><template v-for="(value, key) in { IMEI: detailModem.imei, ICCID: detailModem.iccid, IMSI: detailModem.imsi }" :key="key"><dt>{{ key }}</dt><dd :title="String(value || '')">{{ value || '—' }}</dd></template><dt>本机号码</dt><dd :title="detailLocalPhone || 'SIM 卡未存储本机号码'">{{ detailLocalPhone || 'SIM 未提供' }}</dd><template v-if="activeEsimName"><dt>当前 eSIM</dt><dd :title="activeEsimName">{{ activeEsimName }}</dd></template><dt>原运营商</dt><dd class="sim-operator" :title="simOperator.display"><span v-if="simOperator.flag" class="country-flag" aria-hidden="true">{{ simOperator.flag }}</span><span>{{ simOperator.display }}</span></dd><dt>固件</dt><dd :title="String(detailModem.firmware || '')">{{ detailModem.firmware || '—' }}</dd></dl>
                 </section>
 
                 <section class="white-panel info-card network-card">
                   <div class="card-heading"><div><h3>网络</h3><p>蜂窝网络、VoWiFi 与 IP 状态</p></div><a-button class="ghost-button compact" @click="runAction('切换 IP', { method: 'POST', url: '/rotateip', data: { device_id: selected?.id } })">切换 IP</a-button></div>
-                  <dl><dt>蜂窝数据</dt><dd>{{ detailNetworkEnabled ? (detailNetworkConnected ? '已连接' : detailNetworkRegistered ? '已开启' : '已开启，未连接') : '未开启' }}</dd><dt>运营商</dt><dd>{{ detailOperator }}</dd><dt>网络模式</dt><dd>{{ detailNetworkMode }}</dd><dt>注册状态</dt><dd>{{ detailModem.reg_status_text || '—' }}</dd><dt>内网 IPv4</dt><dd :title="String(detailDevice.private_ip || '')">{{ detailDevice.private_ip || '—' }}</dd><dt>内网 IPv6</dt><dd :title="String(detailDevice.private_ipv6 || '')">{{ detailDevice.private_ipv6 || '—' }}</dd><dt>公网 IP</dt><dd :title="String(detailDevice.public_ip || detailDevice.public_ipv6 || '')">{{ detailDevice.public_ip || detailDevice.public_ipv6 || '—' }}</dd></dl>
-                  <div class="control-list inline-controls"><label><span>蜂窝网络</span><a-switch :checked="detailNetworkEnabled" @change="(checked:boolean) => runAction(checked ? '开启网络' : '关闭网络', { method: 'PATCH', url: `/devices/${selected?.id}/network`, data: { enabled: checked } })" /></label><label><span>VoWiFi</span><a-switch :checked="Boolean(detailDevice.vowifi_enabled)" @change="(checked:boolean) => runAction(checked ? '启用 VoWiFi' : '禁用 VoWiFi', { method: 'PATCH', url: `/devices/${selected?.id}/vowifi`, data: { enabled: checked } })" /></label><label><span>飞行模式</span><a-switch :checked="Boolean(detailDevice.flight_mode ?? [0, 4].includes(Number(detailModem.operating_mode)))" @change="(checked:boolean) => runAction(checked ? '开启飞行模式' : '关闭飞行模式', { method: 'PATCH', url: `/devices/${selected?.id}/flight-mode`, data: { enabled: checked } })" /></label></div>
+                  <dl><dt>蜂窝数据</dt><dd>{{ detailNetworkEnabled ? (detailNetworkConnected ? '已连接' : detailNetworkRegistered ? '已开启，等待数据连接' : '已开启，等待驻网') : '未开启（短信可用）' }}</dd><dt>运营商</dt><dd>{{ detailOperator }}</dd><dt>网络模式</dt><dd>{{ detailNetworkMode }}</dd><dt>注册状态</dt><dd>{{ detailRegistrationText }}</dd><dt>内网 IPv4</dt><dd :title="String(detailDevice.private_ip || '')">{{ detailDevice.private_ip || '—' }}</dd><dt>内网 IPv6</dt><dd :title="String(detailDevice.private_ipv6 || '')">{{ detailDevice.private_ipv6 || '—' }}</dd><dt>公网 IP</dt><dd :title="String(detailDevice.public_ip || detailDevice.public_ipv6 || '')">{{ detailDevice.public_ip || detailDevice.public_ipv6 || '—' }}</dd></dl>
+                  <div class="control-list inline-controls"><label><span title="关闭后仅断开移动数据，SIM 驻网与短信接收保持可用">蜂窝数据</span><a-switch :checked="detailNetworkEnabled" @change="setCellularData" /></label><label><span>VoWiFi</span><a-switch :checked="Boolean(detailDevice.vowifi_enabled)" @change="(checked:boolean) => runAction(checked ? '启用 VoWiFi' : '禁用 VoWiFi', { method: 'PATCH', url: `/devices/${selected?.id}/vowifi`, data: { enabled: checked } })" /></label><label><span>飞行模式</span><a-switch :checked="Boolean(detailDevice.flight_mode ?? [0, 4].includes(Number(detailModem.operating_mode)))" @change="(checked:boolean) => runAction(checked ? '开启飞行模式' : '关闭飞行模式', { method: 'PATCH', url: `/devices/${selected?.id}/flight-mode`, data: { enabled: checked } })" /></label></div>
                 </section>
               </div>
               <TrafficAnalysisPanel :analysis="deviceTraffic" :range="deviceTrafficRange" :loading="deviceTrafficBusy" :error="deviceTrafficError" title="当前设备流量分析" :disabled="!detailNetworkConnected" :disabled-text="detailTrafficDisabledText" @update:range="changeDeviceTrafficRange" @refresh="loadDeviceTraffic" />
             </a-tab-pane>
 
             <a-tab-pane key="esim" tab="eSIM">
-              <div class="esim-toolbar"><div><h3>eUICC</h3><p>{{ esim.chip_info?.sku_name || (esimBusy ? '正在检测…' : esimDetected ? '已检测 eUICC' : '未检测到 eUICC') }} <span v-if="esim.chip_info?.firmware">· 固件 {{ esim.chip_info.firmware }}</span></p></div><div class="row-actions"><a-button class="ghost-button" :loading="esimBusy" @click="loadEsim(true)">刷新</a-button><a-button class="ghost-button" @click="loadNotifications">当前通知</a-button><a-button class="ghost-button" @click="sensitive = !sensitive">{{ sensitive ? '隐藏敏感信息' : '显示敏感信息' }}</a-button></div></div>
-              <div v-if="esim.chip_info" class="euicc-meta"><div><span>EID</span><strong :class="{ blurred: !sensitive }">{{ esim.chip_info.eid || euiccEntry().eid || '—' }}</strong></div><div><span>制造商</span><strong>{{ euiccManufacturer() }}</strong></div><div><span>可用空间</span><strong>{{ euiccFreeSpace() }}</strong></div></div>
-              <div v-for="group in esim.profiles || []" :key="group.aid_hex || group.aid" class="euicc-group white-panel">
-                <div class="euicc-heading"><strong>{{ group.name || 'eUICC' }}</strong><span>可用 {{ euiccFreeSpace(group) }}</span></div>
-                <div v-for="profile in group.profiles || []" :key="profile.iccid" class="profile-row">
-                  <div v-if="renamingProfile !== profile.iccid" class="profile-identity"><button class="profile-remark" type="button" title="点击编辑备注" @click="startProfileRename(profile)">{{ profileRemark(profile) || '点击添加备注' }}</button><strong>{{ profileProvider(profile) || '未知运营商' }}</strong><span class="profile-phone">{{ profilePhone(profile) || '手机号未读取' }}</span><small :class="{ blurred: !sensitive }">{{ profile.iccid }}</small></div>
-                  <div v-else class="profile-name-editor"><div class="profile-edit-row"><a-input v-model:value="profileName" size="small" :maxlength="64" placeholder="输入 Profile 备注" @press-enter="saveProfileName(profile, group)" /><a-button size="small" class="ghost-button" :disabled="renameBusy" @click="cancelProfileRename">取消</a-button><a-button size="small" type="primary" :loading="renameBusy" @click="saveProfileName(profile, group)">保存</a-button></div><small>最多 64 个字符，写入 eUICC Profile 备注</small></div>
-                  <span class="plain-status" :class="profile.state === 1 ? 'online' : 'offline'"><i />{{ profile.state_text || (profile.state === 1 ? '已启用' : '已禁用') }}</span>
-                  <div v-if="renamingProfile !== profile.iccid" class="row-actions"><a-button v-if="profile.state !== 1" class="ghost-button" @click="switchProfile(profile, group)">切换</a-button><a-button class="ghost-button danger-button" :loading="deletingProfile === profile.iccid" @click="confirmDeleteProfile(profile, group)">删除</a-button></div>
-                </div>
-              </div>
-              <section class="download-panel white-panel">
-                <div class="section-title"><div><h2><RiIcon name="arrow-down-box-line" :size="20" /> 下载新 Profile</h2><p>确认激活信息后再写入 eUICC</p></div><a-button class="ghost-button" @click="lpaOpen = true">二维码/链接识别</a-button></div>
-                <div class="form-grid two"><label>SM-DP+ 地址 *<a-input id="esim-smdp" v-model:value="esimForm.smdp" placeholder="例如 rsp.truphone.com" /></label><label>Matching ID<a-input v-model:value="esimForm.matchingId" placeholder="可选，部分运营商不要求" /></label><label>确认码<a-input v-model:value="esimForm.confirmationCode" placeholder="可选" /></label><label>IMEI<a-input v-model:value="esimForm.imei" placeholder="默认使用设备 IMEI，可修改" /></label></div>
-                <a-progress v-if="downloadBusy || downloadProgress.message" :percent="downloadProgress.pct" :status="downloadProgress.error ? 'exception' : downloadProgress.pct >= 100 ? 'success' : 'active'" /><p v-if="downloadProgress.message" class="muted">{{ downloadProgress.error || downloadProgress.message }}</p>
-                <div class="dialog-actions"><a-button type="primary" :loading="downloadBusy" @click="downloadProfile">开始下载</a-button></div>
-              </section>
+              <div class="esim-toolbar"><div><h3>eUICC</h3><p>{{ esim.chip_info?.sku_name || (esimBusy ? '正在检测…' : esimDetected ? '已检测 eUICC' : '未检测到 eUICC') }} <span v-if="esim.chip_info?.firmware">· 固件 {{ esim.chip_info.firmware }}</span></p></div><div class="row-actions"><a-button class="ghost-button" :loading="esimBusy" @click="loadEsim(true)">刷新</a-button><a-button v-if="esimDetected" class="ghost-button" @click="loadNotifications">当前通知</a-button><a-button v-if="esimDetected" class="ghost-button" @click="sensitive = !sensitive">{{ sensitive ? '隐藏敏感信息' : '显示敏感信息' }}</a-button></div></div>
+              <a-spin :spinning="esimBusy">
+                <EmptyState v-if="!esimBusy && !esimDetected" title="未检测到可管理的 eUICC" :description="esimError || '当前设备可继续使用实体 SIM，SIM 驻网和短信功能不受影响。'" icon="sim-card-line" />
+                <template v-else-if="esimDetected">
+                  <div v-if="esim.chip_info" class="euicc-meta"><div><span>EID</span><strong :class="{ blurred: !sensitive }">{{ esim.chip_info.eid || euiccEntry().eid || '—' }}</strong></div><div><span>制造商</span><strong>{{ euiccManufacturer() }}</strong></div><div><span>可用空间</span><strong>{{ euiccFreeSpace() }}</strong></div></div>
+                  <div v-for="group in esim.profiles || []" :key="group.aid_hex || group.aid" class="euicc-group white-panel">
+                    <div class="euicc-heading"><strong>{{ group.name || 'eUICC' }}</strong><span>可用 {{ euiccFreeSpace(group) }}</span></div>
+                    <div v-for="profile in group.profiles || []" :key="profile.iccid" class="profile-row">
+                      <div v-if="renamingProfile !== profile.iccid" class="profile-identity"><button class="profile-remark" type="button" title="点击编辑备注" @click="startProfileRename(profile)">{{ profileRemark(profile) || '点击添加备注' }}</button><strong>{{ profileProvider(profile) || '未知运营商' }}</strong><span class="profile-phone">{{ profilePhone(profile) || '手机号未读取' }}</span><small :class="{ blurred: !sensitive }">{{ profile.iccid }}</small></div>
+                      <div v-else class="profile-name-editor"><div class="profile-edit-row"><a-input v-model:value="profileName" size="small" :maxlength="64" placeholder="输入 Profile 备注" @press-enter="saveProfileName(profile, group)" /><a-button size="small" class="ghost-button" :disabled="renameBusy" @click="cancelProfileRename">取消</a-button><a-button size="small" type="primary" :loading="renameBusy" @click="saveProfileName(profile, group)">保存</a-button></div><small>最多 64 个字符，写入 eUICC Profile 备注</small></div>
+                      <span class="plain-status" :class="profile.state === 1 ? 'online' : 'offline'"><i />{{ profile.state_text || (profile.state === 1 ? '已启用' : '已禁用') }}</span>
+                      <div v-if="renamingProfile !== profile.iccid" class="row-actions"><a-button v-if="profile.state !== 1" class="ghost-button" @click="switchProfile(profile, group)">切换</a-button><a-button class="ghost-button danger-button" :loading="deletingProfile === profile.iccid" @click="confirmDeleteProfile(profile, group)">删除</a-button></div>
+                    </div>
+                  </div>
+                  <section class="download-panel white-panel">
+                    <div class="section-title"><div><h2><RiIcon name="arrow-down-box-line" :size="20" /> 下载新 Profile</h2><p>确认激活信息后再写入 eUICC</p></div><a-button class="ghost-button" @click="lpaOpen = true">二维码/链接识别</a-button></div>
+                    <div class="form-grid two"><label>SM-DP+ 地址 *<a-input id="esim-smdp" v-model:value="esimForm.smdp" placeholder="例如 rsp.truphone.com" /></label><label>Matching ID<a-input v-model:value="esimForm.matchingId" placeholder="可选，部分运营商不要求" /></label><label>确认码<a-input v-model:value="esimForm.confirmationCode" placeholder="可选" /></label><label>IMEI<a-input v-model:value="esimForm.imei" placeholder="默认使用设备 IMEI，可修改" /></label></div>
+                    <a-progress v-if="downloadBusy || downloadProgress.message" :percent="downloadProgress.pct" :status="downloadProgress.error ? 'exception' : downloadProgress.pct >= 100 ? 'success' : 'active'" /><p v-if="downloadProgress.message" class="muted">{{ downloadProgress.error || downloadProgress.message }}</p>
+                    <div class="dialog-actions"><a-button type="primary" :loading="downloadBusy" @click="downloadProfile">开始下载</a-button></div>
+                  </section>
+                </template>
+              </a-spin>
             </a-tab-pane>
 
             <a-tab-pane key="at" tab="AT 终端">
@@ -880,7 +956,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
             </a-tab-pane>
 
             <a-tab-pane key="policy" tab="卡策略">
-              <section class="policy-section white-panel"><EmptyState v-if="!policyBusy && !policy" title="设备尚未识别到 SIM 卡 ICCID，策略不可操作" icon="sim-card-line" /><a-spin v-else :spinning="policyBusy"><template v-if="policy"><div class="section-title"><div><h2>卡策略</h2><p>ICCID {{ detailModem.iccid || detailDevice.iccid || '—' }} · 来源 {{ policy.source || '本地配置' }}</p></div></div><div class="form-grid two policy-fields"><label>IP 版本<a-select v-model:value="policy.ip_version" :options="[{label:'IPv4',value:'v4'},{label:'IPv6',value:'v6'},{label:'IPv4 + IPv6（双栈）',value:'v4v6'}]" /><small>下次开启网络时生效</small></label><label>APN（可选）<a-input v-model:value="policy.apn" placeholder="留空自动识别" /><small>下次开启网络时生效</small></label></div><div class="policy-switches"><label><div><strong>开启网络</strong><p>VoWiFi/飞行开启时不可用</p></div><a-switch v-model:checked="policy.network_enabled" /></label><label><div><strong>VoWiFi</strong><p>启用后进飞行模式，不支持国内运营商</p></div><a-switch v-model:checked="policy.vowifi_enabled" /></label><label><div><strong>飞行模式</strong><p>关闭蜂窝射频，保留可用的 WiFi Calling 链路</p></div><a-switch v-model:checked="policy.airplane_enabled" /></label></div><div class="dialog-actions"><a-button type="primary" @click="savePolicy">保存策略</a-button></div></template></a-spin></section>
+              <section class="policy-section white-panel"><EmptyState v-if="!policyBusy && !policy" title="设备尚未识别到 SIM 卡 ICCID，策略不可操作" icon="sim-card-line" /><a-spin v-else :spinning="policyBusy"><template v-if="policy"><div class="section-title"><div><h2>卡策略</h2><p>ICCID {{ detailModem.iccid || detailDevice.iccid || '—' }} · 来源 {{ policy.source || '本地配置' }}</p></div></div><div class="form-grid two policy-fields"><label>IP 版本<a-select v-model:value="policy.ip_version" :options="[{label:'IPv4',value:'v4'},{label:'IPv6',value:'v6'},{label:'IPv4 + IPv6（双栈）',value:'v4v6'}]" /><small>下次开启蜂窝数据时生效</small></label><label>APN（可选）<a-input v-model:value="policy.apn" placeholder="留空自动识别" /><small>下次开启蜂窝数据时生效</small></label></div><div class="policy-switches"><label><div><strong>蜂窝数据</strong><p>仅控制移动数据会话；关闭后仍保持 SIM 驻网与短信接收</p></div><a-switch v-model:checked="policy.network_enabled" /></label><label><div><strong>VoWiFi</strong><p>启用后进飞行模式，不支持国内运营商</p></div><a-switch v-model:checked="policy.vowifi_enabled" /></label><label><div><strong>飞行模式</strong><p>关闭蜂窝射频，保留可用的 WiFi Calling 链路</p></div><a-switch v-model:checked="policy.airplane_enabled" /></label></div><div class="dialog-actions"><a-button type="primary" @click="savePolicy">保存策略</a-button></div></template></a-spin></section>
             </a-tab-pane>
 
             <a-tab-pane key="config" tab="配置">
