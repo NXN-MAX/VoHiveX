@@ -382,6 +382,15 @@ function discoveryKey(row: Record<string, any>) {
   return String(row.discovery_key || `${row.usb_path || ''}|${row.at_port || ''}`)
 }
 
+function discoveryProblem(row: Record<string, any>) {
+  return String(row.degraded_reason || '该设备暂时无法读取 IMEI，请检查串口和驱动后重试。')
+}
+
+function discoveryLabel(row: Record<string, any>) {
+  const label = `${row.net_interface || '未识别网卡'} · ${String(row.mode || 'unknown').toUpperCase()} · ${row.at_port || 'AT 未知'}`
+  return row.degraded ? `${label} · ${discoveryProblem(row)}` : `${label} · ${row.imei || 'IMEI 未知'}`
+}
+
 function resetAddForm() {
   Object.assign(addForm, {
     selected: '', id: '', name: '', interface: '', modem_imei: '', usb_path: '', esim_transport: 'at', at_port: '', control_device: '', device_backend: 'at',
@@ -423,7 +432,7 @@ async function openAdd() {
 async function addDevice() {
   const item = addSelected.value
   if (!item) return message.warning('请选择一个未配置设备')
-  if (item.degraded) return message.warning('该设备暂时无法读取 IMEI，不能添加')
+  if (item.degraded) return message.warning(discoveryProblem(item))
   if (!addForm.id.trim()) return message.warning('请填写设备 ID')
   applyDiscovered(item)
   addBusy.value = true
@@ -968,8 +977,8 @@ onBeforeUnmount(() => window.clearInterval(timer))
       <EmptyState v-else class="device-details" title="请选择设备" icon="smartphone-line" />
     </div>
 
-    <a-modal v-model:open="addOpen" title="添加设备" width="720px" :confirm-loading="addBusy" ok-text="添加设备" cancel-text="取消" @ok="addDevice">
-      <a-spin :spinning="addBusy"><div class="form-stack add-device-form"><p class="muted">选择一个未配置设备，系统将自动填充 AT 端口与识别信息。</p><label>未配置设备<a-select :value="addForm.selected" style="width:100%" :options="unconfiguredDiscovered.map(item => ({ value: discoveryKey(item), disabled: Boolean(item.degraded), label: `${item.net_interface || '未识别网卡'} · ${String(item.mode || 'unknown').toUpperCase()} · ${item.at_port || 'AT 未知'} · ${item.imei || 'IMEI 未知'}` }))" placeholder="选择设备" @change="selectDiscovered" /></label><p v-if="!addBusy && !unconfiguredDiscovered.length" class="empty-hint">暂无可添加设备，或系统未发现新的模组。</p><div v-if="addSelected" class="add-device-summary"><strong>{{ String(addSelected.mode || 'unknown').toUpperCase() }}</strong><span>{{ addSelected.control_path || '无控制设备' }} · AT: {{ addSelected.at_port || '—' }} · USB: {{ addSelected.usb_path || '—' }}</span></div><div class="form-grid two"><label>设备 ID *<a-input v-model:value="addForm.id" placeholder="例如 ec20_3" /></label><label>显示名称（可选）<a-input v-model:value="addForm.name" placeholder="例如 客厅 4G 模组" /></label><label>IMEI 绑定<a-input v-model:value="addForm.modem_imei" disabled placeholder="自动识别" /></label><label>USB 路径<a-input v-model:value="addForm.usb_path" disabled /></label><label>网卡接口<a-input v-model:value="addForm.interface" disabled /></label><label>AT 端口<a-input v-model:value="addForm.at_port" disabled /></label><label>控制设备<a-input v-model:value="addForm.control_device" disabled /></label><div class="backend-mode add-backend"><div><strong>设备运行模式</strong><small>{{ addFixedQmi ? '固定 QMI，AT 口仅用于终端' : addFixedMbim ? '固定 MBIM，AT 口仅用于终端' : 'AT=传统串口 / QMI=纯 QMI' }}</small></div><a-select v-model:value="addForm.device_backend" :disabled="addFixedQmi || addFixedMbim" :options="addBackendOptions" /></div></div></div></a-spin>
+    <a-modal v-model:open="addOpen" title="添加设备" width="720px" :confirm-loading="addBusy" :ok-button-props="{ disabled: !addSelected || Boolean(addSelected.degraded) }" ok-text="添加设备" cancel-text="取消" @ok="addDevice">
+      <a-spin :spinning="addBusy"><div class="form-stack add-device-form"><p class="muted">选择一个未配置设备，系统将自动填充 AT 端口与识别信息。</p><label>未配置设备<a-select :value="addForm.selected" style="width:100%" :options="unconfiguredDiscovered.map(item => ({ value: discoveryKey(item), label: discoveryLabel(item) }))" placeholder="选择设备" @change="selectDiscovered" /></label><p v-if="!addBusy && !unconfiguredDiscovered.length" class="empty-hint">暂无可添加设备，或系统未发现新的模组。</p><a-alert v-if="addSelected?.degraded" type="warning" show-icon :message="discoveryProblem(addSelected)" /><div v-if="addSelected" class="add-device-summary"><strong>{{ String(addSelected.mode || 'unknown').toUpperCase() }}</strong><span>{{ addSelected.control_path || '无控制设备' }} · AT: {{ addSelected.at_port || '—' }} · USB: {{ addSelected.usb_path || '—' }}</span></div><div class="form-grid two"><label>设备 ID *<a-input v-model:value="addForm.id" placeholder="例如 ec20_3" /></label><label>显示名称（可选）<a-input v-model:value="addForm.name" placeholder="例如 客厅 4G 模组" /></label><label>IMEI 绑定<a-input v-model:value="addForm.modem_imei" disabled placeholder="自动识别" /></label><label>USB 路径<a-input v-model:value="addForm.usb_path" disabled /></label><label>网卡接口<a-input v-model:value="addForm.interface" disabled /></label><label>AT 端口<a-input v-model:value="addForm.at_port" disabled /></label><label>控制设备<a-input v-model:value="addForm.control_device" disabled /></label><div class="backend-mode add-backend"><div><strong>设备运行模式</strong><small>{{ addFixedQmi ? '固定 QMI，AT 口仅用于终端' : addFixedMbim ? '固定 MBIM，AT 口仅用于终端' : 'AT=传统串口 / QMI=纯 QMI' }}</small></div><a-select v-model:value="addForm.device_backend" :disabled="addFixedQmi || addFixedMbim" :options="addBackendOptions" /></div></div></div></a-spin>
     </a-modal>
 
     <a-modal v-model:open="lpaOpen" title="二维码/链接识别" :footer="null" @cancel="lpaText = ''; lpaError = ''">
