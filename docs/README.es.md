@@ -16,7 +16,7 @@
 [English](../README.md) | [العربية](README.ar.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Français](README.fr.md) | [Русский](README.ru.md) | Español | [日本語](README.ja.md)
 
 **Proyecto original:** [VoHive](https://github.com/iniwex5/vohive), de [iniwex5](https://github.com/iniwex5)<br>
-**Autor de VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **Versión:** 2.1.4
+**Autor de VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **Versión:** 2.1.5
 
 VoHiveX es una plataforma personal de gestión y pruebas de módems derivada de VoHive. Añade compatibilidad con módulos DJI 4G, SMS programados, gestión de suscripciones y nodos Mihomo, reconocimiento de códigos de activación eSIM, archivo de SMS, notificaciones y una interfaz Vue adaptable respaldada por una puerta de enlace en Go.
 
@@ -73,10 +73,10 @@ El contenedor completo solo se publica para arquitecturas que disponen de un nú
 
 Las imágenes se publican en:
 
-- `maxnxxn/vohivex:2.1.4`
-- `ghcr.io/nxn-max/vohivex:2.1.4`
+- `maxnxxn/vohivex:2.1.5`
+- `ghcr.io/nxn-max/vohivex:2.1.5`
 
-Ambos repositorios ofrecen las etiquetas multiarquitectura `2.1.4`, `v2.1.4` y `latest`. Docker selecciona automáticamente la imagen adecuada para el host.
+Ambos repositorios ofrecen las etiquetas multiarquitectura `2.1.5`, `v2.1.5` y `latest`. Docker selecciona automáticamente la imagen adecuada para el host.
 
 Valores predeterminados:
 
