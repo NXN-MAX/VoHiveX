@@ -1,0 +1,6 @@
+# Optional host policy: reserve only DJI 2ca3:4006 adapters for VoHiveX.
+# Install on the Docker host, not inside the container. See app/README.md.
+ACTION!="add|change|move|bind", GOTO="vohivex_mm_end"
+SUBSYSTEM=="usb", ATTR{idVendor}=="2ca3", ATTR{idProduct}=="4006", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="2ca3", ATTRS{idProduct}=="4006", ENV{ID_MM_DEVICE_IGNORE}="1"
+LABEL="vohivex_mm_end"
