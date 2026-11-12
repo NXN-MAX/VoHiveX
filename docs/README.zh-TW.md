@@ -16,7 +16,7 @@
 [English](../README.md) | [العربية](README.ar.md) | [简体中文](README.zh-CN.md) | 繁體中文 | [Français](README.fr.md) | [Русский](README.ru.md) | [Español](README.es.md) | [日本語](README.ja.md)
 
 **原始專案：** [iniwex5](https://github.com/iniwex5) 開發的 [VoHive](https://github.com/iniwex5/vohive)<br>
-**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **版本：** 2.1.4
+**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **版本：** 2.1.5
 
 VoHiveX 是從 VoHive 衍生的個人模組管理與測試平台。專案加入 DJI 4G 模組相容性、排程簡訊、Mihomo 訂閱與節點管理、eSIM 啟用碼辨識、簡訊封存、訊息推送，以及由 Go 閘道支援的響應式 Vue 介面。
 
@@ -73,10 +73,10 @@ VoHiveX 是從 VoHive 衍生的個人模組管理與測試平台。專案加入 
 
 映像發布於：
 
-- `maxnxxn/vohivex:2.1.4`
-- `ghcr.io/nxn-max/vohivex:2.1.4`
+- `maxnxxn/vohivex:2.1.5`
+- `ghcr.io/nxn-max/vohivex:2.1.5`
 
-兩個儲存庫均提供多架構的 `2.1.4`、`v2.1.4` 與 `latest` 標籤，Docker 會自動選擇適合主機的映像。
+兩個儲存庫均提供多架構的 `2.1.5`、`v2.1.5` 與 `latest` 標籤，Docker 會自動選擇適合主機的映像。
 
 預設值：
 

@@ -16,7 +16,7 @@
 [English](../README.md) | [العربية](README.ar.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Français](README.fr.md) | Русский | [Español](README.es.md) | [日本語](README.ja.md)
 
 **Исходный проект:** [VoHive](https://github.com/iniwex5/vohive), автор — [iniwex5](https://github.com/iniwex5)<br>
-**Автор VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **Версия:** 2.1.4
+**Автор VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **Версия:** 2.1.5
 
 VoHiveX — персональная платформа управления и тестирования модемов, созданная на основе VoHive. Она добавляет поддержку модулей DJI 4G, SMS по расписанию, управление подписками и узлами Mihomo, распознавание кодов активации eSIM, архив SMS, уведомления и адаптивный интерфейс Vue с шлюзом на Go.
 
@@ -73,10 +73,10 @@ VoHiveX — персональная платформа управления и 
 
 Образы публикуются в:
 
-- `maxnxxn/vohivex:2.1.4`
-- `ghcr.io/nxn-max/vohivex:2.1.4`
+- `maxnxxn/vohivex:2.1.5`
+- `ghcr.io/nxn-max/vohivex:2.1.5`
 
-Оба репозитория предоставляют мультиархитектурные теги `2.1.4`, `v2.1.4` и `latest`. Docker автоматически выбирает образ для хоста.
+Оба репозитория предоставляют мультиархитектурные теги `2.1.5`, `v2.1.5` и `latest`. Docker автоматически выбирает образ для хоста.
 
 Значения по умолчанию:
 

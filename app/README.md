@@ -5,20 +5,20 @@ Run the following commands from the repository root. The Compose project name is
 ## Requirements
 
 - Frontend build machine: Python 3 and Node.js/npm. UPX is required only when regenerating binary patches.
-- Runtime host: Docker Compose, plus `option`, `qmi_wwan`, and their dependencies for the running kernel.
-- Modem interfaces: the adapter registers a runtime match for `2ca3:4006`; MI_02 is used for AT and MI_04 for QMI. It does not change the device USB ID. Other devices continue to use the kernel's existing match table.
+- Runtime host: Docker Compose, plus `option` and either `qmi_wwan` (QMI mode) or `cdc_ether` (ECM mode), with their dependencies for the running kernel.
+- Modem interfaces: the adapter registers a runtime serial match for `2ca3:4006`; MI_02 is used for AT. A vendor-specific MI_04 uses QMI, while the CDC ECM MI_04/MI_05 pair retains `cdc_ether`. It does not change the device USB ID or USB mode. Other devices continue to use the kernel's existing match table.
 - Dependencies are installed only inside the container image; host system packages are not updated. Compose uses host networking so Network Debug can see the modem interfaces. `NET_ADMIN` lets the modem core configure an enabled cellular interface, whose default route uses metric `5000`; the NAS LAN route remains preferred and DNS is not changed. `NET_RAW` binds each diagnostic browser session to its selected cellular interface.
 
 ## Build
 
-GitHub Actions builds `linux/amd64`, `linux/arm64`, and `linux/arm/v7` separately, runs startup tests, and publishes to `ghcr.io/nxn-max/vohivex`. Pulling `2.1.4` or `latest` selects the correct architecture automatically.
+GitHub Actions builds `linux/amd64`, `linux/arm64`, and `linux/arm/v7` separately, runs startup tests, and publishes to `ghcr.io/nxn-max/vohivex`. Pulling `2.1.5` or `latest` selects the correct architecture automatically.
 
 For the first source build, install Go 1.24+, Python 3, Node.js/npm, and UPX on the build machine, then run:
 
 ```sh
 python3 app/prepare-build.py
 python3 app/verify-build.py
-docker build -f Dockerfile.vohivex -t vohivex:2.1.4 .
+docker build -f Dockerfile.vohivex -t vohivex:2.1.5 .
 ```
 
 Use `--arch amd64`, `--arch arm64`, or `--arch armv7` to prepare a single architecture. The Vue 3 + Vite + Pinia + Antdv Next application in `web/` is the single frontend source. Each architecture uses its own version-pinned manifest and SHA-256 values; patch offsets are never reused with another upstream version. Rebuild a patch separately with `patch-release.py --arch <architecture> --original /path/to/original`.
@@ -46,6 +46,23 @@ docker compose -f docker-compose.single.yml logs vohive
 ```
 
 Health checks cover driver binding, device nodes, and the web service. Confirm the actual device state in the interface. Docker's restart policy recovers the container when a required process exits.
+
+## ECM Discovery and Serial Port Conflicts
+
+For DJI `2ca3:4006` adapters with the QDC507 ECM layout, absence of `/dev/cdc-wdm*` is expected. The health check requires the AT node and ECM network interface instead. The gateway supplements the core's discovery result with this specific layout; it does not assume other USB layouts use the same AT interface. The Add Device dialog shows an unavailable candidate with a reason when its driver, AT node, or identity is unavailable.
+
+`GET /api/devices/discovered?with_imei=1` requires login and makes a bounded, read-only `AT+CGSN` query on an unconfigured candidate's MI_02 port. Configured devices are never probed by this fallback. Without `with_imei=1`, no serial query is made. Diagnostic and GNSS ports are not probed. An exclusive owner produces `discovery_error: serial_busy`; the response also includes `degraded: true` and `degraded_reason` for display. Inspect the Docker host's port owners (`sudo fuser -v /dev/ttyUSB*` or `sudo lsof /dev/ttyUSB*`); a container's PID namespace may hide the owning host process. A busy port alone does not identify which program owns it.
+
+If host inspection confirms ModemManager owns this adapter and VoHiveX should manage it, the optional [79-mm-vohivex.rules](udev/79-mm-vohivex.rules) reserves only USB ID `2ca3:4006`. It applies to all adapters with that USB ID, so check for any other matching adapter first. Install it on the Docker host:
+
+```sh
+sudo install -m 0644 app/udev/79-mm-vohivex.rules /etc/udev/rules.d/79-mm-vohivex.rules
+sudo udevadm control --reload-rules
+```
+
+Reloading rules does not release an already open port. Save ongoing modem work, then reconnect the affected adapter so it is rediscovered under the new policy, and rescan in Add Device. Do not stop ModemManager globally when it manages other hardware. VoHiveX does not install this rule or stop host services automatically. To undo the policy, remove only `/etc/udev/rules.d/79-mm-vohivex.rules`, reload rules, and reconnect the affected adapter again.
+
+This rule follows ModemManager's documented [device-ignore tag](https://www.freedesktop.org/software/ModemManager/api/latest/ModemManager-Common-udev-tags.html) and [udev ordering and action rules](https://modemmanager.org/docs/modemmanager/port-and-device-detection/).
 
 ## Updates and Backups
 
@@ -88,4 +105,4 @@ Stopping the container does not immediately unbind the device. `cleanup` removes
 
 ## Automatic Kernel Detection
 
-At container start, VoHiveX detects the host's running kernel automatically; no kernel version must be entered. Already loaded drivers are reused. Otherwise, `option`, `qmi_wwan`, and their dependencies are loaded from the mounted `/lib/modules/<running-kernel-version>`. Initialization reports an error and stops when that directory is missing or driver loading fails. It never installs driver packages or replaces the kernel. After upgrading the host kernel, ensure that the matching drivers are present on the host.
+VoHiveX detects the host's running kernel automatically; no kernel version must be entered. Already loaded drivers are reused. Drivers needed by a connected adapter (`option` plus `qmi_wwan` or `cdc_ether`) are loaded from the mounted `/lib/modules/<running-kernel-version>`, including after hotplug. With no supported adapter connected, no driver load is required. Initialization reports an error and stops when a required driver cannot be loaded. It never installs driver packages or replaces the kernel. After upgrading the host kernel, ensure that the matching drivers are present on the host.

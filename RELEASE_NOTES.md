@@ -1,3 +1,17 @@
+## VoHiveX 2.1.5
+
+Fix DJI `2ca3:4006` adapters that expose an ECM network interface (including the QDC507 layout) instead of QMI. Existing devices and persistent data remain compatible.
+
+### Fixes
+
+- Detect QMI and ECM USB layouts separately; preserve the kernel's `cdc_ether` binding and check the correct device nodes. ECM no longer requires `qmi_wwan` or a `cdc-wdm` node.
+- Load only drivers needed by connected adapters, including hotplug after startup, and reuse project-owned dynamic IDs.
+- Supplement authenticated device discovery for this ECM layout using MI_02 for AT and MI_04 for Ethernet. With identity discovery enabled, issue a bounded, read-only IMEI query without probing configured devices or diagnostic/GNSS ports.
+- Keep unavailable adapters visible and show actionable driver/serial-busy reasons in the Add Device dialog. Provide an optional, USB-ID-scoped ModemManager ignore rule for hosts where it owns the ports.
+- Add sysfs fixtures, authenticated API regression tests, and Linux pseudo-terminal tests for identity queries, exclusive locks, timeouts, and terminal-setting restoration.
+
+No USB mode switch or host service change is performed automatically. The host's ModemManager policy remains an administrator choice; see [deployment troubleshooting](app/README.md#ecm-discovery-and-serial-port-conflicts).
+
 ## VoHiveX 2.1.4
 
 VoHiveX 2.1.4 restores device and SIM details used by the original modem API, improves live-log stability, and prevents private cellular addresses from appearing on dashboard cards. Existing configuration, devices, messages, scheduled tasks, proxy subscriptions, and account credentials remain compatible.
