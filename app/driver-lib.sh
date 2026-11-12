@@ -5,7 +5,7 @@ SYS="${QMI_SYS_ROOT:-/host-sys}"
 STATE="${QMI_STATE_ROOT:-/state}"
 USB="$SYS/bus/usb"
 SERIAL="$SYS/bus/usb-serial/drivers/option1"
-MODULES='usbserial usb_wwan usbnet cdc_wdm option qmi_wwan'
+MODULES='usbserial usb_wwan mii usbnet cdc_wdm option qmi_wwan cdc_ether'
 
 log() { printf '[QMI_WWAN] %s\n' "$*"; }
 fail() { log "ERROR: $*" >&2; exit 1; }
@@ -13,6 +13,17 @@ readf() { cat "$1" 2>/dev/null || true; }
 driver_of() { basename "$(readlink "$1/driver" 2>/dev/null || printf none)"; }
 is_dji() {
   [ "$(readf "$1/idVendor")" = 2ca3 ] && [ "$(readf "$1/idProduct")" = 4006 ]
+}
+dji_mode() {
+  if [ "$(readf "$1:1.4/bInterfaceClass")" = ff ]; then
+    printf qmi
+  elif [ "$(readf "$1:1.4/bInterfaceClass")" = 02 ] &&
+       [ "$(readf "$1:1.4/bInterfaceSubClass")" = 06 ] &&
+       [ "$(readf "$1:1.5/bInterfaceClass")" = 0a ]; then
+    printf ecm
+  else
+    printf unsupported
+  fi
 }
 has_id() { grep -qi '^2ca3 4006\( \|$\)' "$1" 2>/dev/null; }
 write_sys() { printf '%s\n' "$2" > "$1"; }
@@ -36,7 +47,22 @@ validate_devices() {
   for p in "$USB"/devices/*; do
     is_dji "$p" || continue
     [ "$(readf "$p/bConfigurationValue")" = 1 ] || fail 'Unexpected DJI USB configuration'
-    for n in 2 4; do
+    mode="$(dji_mode "$p")"
+    case "$mode" in
+      qmi) serial_interfaces='2 4' ;;
+      ecm)
+        serial_interfaces=2
+        # Preserve the kernel's CDC Ethernet control/data binding.
+        for n in 4 5; do
+          case "$(driver_of "$p:1.$n")" in
+            none|cdc_ether) ;;
+            *) fail "Another driver owns $p:1.$n; will not detach it" ;;
+          esac
+        done ;;
+      *) fail "Unsupported DJI USB interface layout: $p" ;;
+    esac
+    log "DJI $(basename "$p") mode=$mode"
+    for n in $serial_interfaces; do
       i="$p:1.$n"
       [ "$(readf "$i/bInterfaceClass")" = ff ] || fail "Unexpected interface: $i"
       case "$(driver_of "$i")" in
@@ -58,19 +84,34 @@ init_state() {
   fi
 }
 
+required_modules() {
+  need_option=0; need_qmi=0; need_ecm=0
+  for p in "$USB"/devices/*; do
+    is_dji "$p" || continue
+    case "$(dji_mode "$p")" in
+      qmi) need_option=1; need_qmi=1 ;;
+      ecm) need_option=1; need_ecm=1 ;;
+    esac
+  done
+  [ "$need_option" -eq 0 ] || printf 'option '
+  [ "$need_qmi" -eq 0 ] || printf 'qmi_wwan '
+  [ "$need_ecm" -eq 0 ] || printf 'cdc_ether '
+}
+
 load_modules() {
   current_kernel="$(uname -r)"
   [ -n "$current_kernel" ] || fail 'Cannot detect the running host kernel'
-  log "Using running host kernel: $current_kernel"
   before=' '
   for m in $MODULES; do
     [ ! -d "$SYS/module/$m" ] || before="$before$m "
   done
   # Load in this order so option wins initial serial-interface probing.
   result=0
-  for module in option qmi_wwan; do
+  wanted="$(required_modules)"
+  for module in $wanted; do
     # Reuse loaded/built-in drivers; modprobe selects the running kernel by default.
     [ ! -d "$SYS/module/$module" ] || continue
+    log "Loading $module for running host kernel: $current_kernel"
     if [ ! -d "/lib/modules/$current_kernel" ]; then
       log "Missing driver directory for running kernel: /lib/modules/$current_kernel"
       result=1
@@ -88,26 +129,28 @@ load_modules() {
 }
 
 register_ids() {
+  wanted=" $(required_modules)"
+  case "$wanted" in *' option '*) ;; *) return 0 ;; esac
   if has_id "$SERIAL/new_id" && [ ! -f "$STATE/option-id" ]; then
     fail 'An existing DJI option ID is not owned by this project; refusing to replace it'
   fi
+  case "$wanted" in *' qmi_wwan '*)
   if has_id "$USB/drivers/qmi_wwan/new_id" && [ ! -f "$STATE/qmi-id" ]; then
     fail 'An existing DJI QMI ID is not owned by this project; refusing to replace it'
   fi
-  if ! has_id "$SERIAL/new_id"; then
+  ;; esac
+  if [ ! -f "$STATE/option-id" ]; then
     # The usb-serial core propagates this registration to the USB driver too.
-    : > "$STATE/option-id"
     write_sys "$SERIAL/new_id" '2ca3 4006 ff' || fail 'Cannot register option ID'
-  elif [ ! -f "$STATE/option-id" ]; then
-    fail 'An existing DJI option ID is not owned by this project; refusing to replace it'
+    : > "$STATE/option-id"
   fi
-  if ! has_id "$USB/drivers/qmi_wwan/new_id"; then
-    : > "$STATE/qmi-id"
+  case "$wanted" in *' qmi_wwan '*)
+  if [ ! -f "$STATE/qmi-id" ]; then
     # Borrow EC25 driver_info (DTR quirk); the modem USB ID is unchanged.
     write_sys "$USB/drivers/qmi_wwan/new_id" '2ca3 4006 ff 2c7c 0125' || fail 'Cannot register QMI ID'
-  elif [ ! -f "$STATE/qmi-id" ]; then
-    fail 'An existing DJI QMI ID is not owned by this project; refusing to replace it'
+    : > "$STATE/qmi-id"
   fi
+  ;; esac
 }
 
 bind_to() {
@@ -127,13 +170,19 @@ bind_to() {
 }
 
 reconcile() {
+  # Recheck requirements for hotplug; loaded modules/owned IDs are reused.
+  load_modules
+  register_ids
   for p in "$USB"/devices/*; do
     is_dji "$p" || continue
     [ "$(readf "$p/bConfigurationValue")" = 1 ] || continue
+    case "$(dji_mode "$p")" in qmi|ecm) ;; *) continue ;; esac
     # Only the DJI AT and QMI interfaces are actively corrected.
     # Diagnostic/GNSS ports may also be exposed by option and are left alone.
     bind_to "$p:1.2" option || return 1
-    bind_to "$p:1.4" qmi_wwan || return 1
+    if [ "$(dji_mode "$p")" = qmi ]; then
+      bind_to "$p:1.4" qmi_wwan || return 1
+    fi
   done
 }
 
@@ -143,10 +192,20 @@ health() {
     is_dji "$p" || continue
     found=1
     [ "$(driver_of "$p:1.2")" = option ] || return 1
-    [ "$(driver_of "$p:1.4")" = qmi_wwan ] || return 1
-    qmi=0
-    for node in "$p:1.4"/usbmisc/cdc-wdm*; do [ ! -e "$node" ] || qmi=1; done
-    [ "$qmi" -eq 1 ] || return 1
+    case "$(dji_mode "$p")" in
+      qmi)
+        [ "$(driver_of "$p:1.4")" = qmi_wwan ] || return 1
+        qmi=0
+        for node in "$p:1.4"/usbmisc/cdc-wdm*; do [ ! -e "$node" ] || qmi=1; done
+        [ "$qmi" -eq 1 ] || return 1 ;;
+      ecm)
+        [ "$(driver_of "$p:1.4")" = cdc_ether ] || return 1
+        [ "$(driver_of "$p:1.5")" = cdc_ether ] || return 1
+        ethernet=0
+        for node in "$p:1.4"/net/*; do [ ! -e "$node" ] || ethernet=1; done
+        [ "$ethernet" -eq 1 ] || return 1 ;;
+      *) return 1 ;;
+    esac
     at=0
     for node in "$p:1.2"/ttyUSB*/tty/ttyUSB* "$p:1.2"/tty/ttyUSB*; do
       [ ! -e "$node" ] || at=1
@@ -182,7 +241,7 @@ cleanup() {
       write_sys "$USB/drivers/$driver/unbind" "$(basename "$i")" || errors=1
     done
   done
-  for m in qmi_wwan option cdc_wdm usbnet usb_wwan usbserial; do
+  for m in qmi_wwan option cdc_ether cdc_wdm usbnet mii usb_wwan usbserial; do
     grep -qx "$m" "$STATE/owned-modules" 2>/dev/null || continue
     [ -d "$SYS/module/$m" ] || continue
     # Never force removal; shared/busy modules are retained.
