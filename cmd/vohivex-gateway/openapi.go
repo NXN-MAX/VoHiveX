@@ -28,6 +28,7 @@ const gatewayOpenAPI = `{
     {"name":"Logs","description":"Application log history"}
   ],
   "components": {"schemas": {
+    "VoHiveXDiscoveredDevice": {"type":"object","additionalProperties":true,"properties":{"usb_path":{"type":"string"},"at_port":{"type":"string"},"net_interface":{"type":"string"},"mode":{"type":"string"},"imei":{"type":"string","description":"Available when with_imei=1; configured adapters use their saved identity"},"configured":{"type":"boolean"},"degraded":{"type":"boolean","description":"Candidate cannot currently be added"},"discovery_error":{"type":"string","description":"Machine-readable reason, including serial_busy or missing_at_port"},"degraded_reason":{"type":"string","description":"User-visible diagnostic reason"}}},
     "VoHiveXError": {"type":"object","properties":{"error":{"type":"string"}},"required":["error"]},
     "CardPolicy": {"type":"object","properties":{"source":{"type":"string","readOnly":true},"ip_version":{"type":"string","enum":["v4","v6","v4v6"]},"apn":{"type":"string"},"network_enabled":{"type":"boolean"},"vowifi_enabled":{"type":"boolean"},"airplane_enabled":{"type":"boolean"}}},
     "USSDContinueRequest": {"type":"object","required":["session_id","input"],"properties":{"session_id":{"type":"string"},"input":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1000,"default":30000}}},
@@ -56,6 +57,7 @@ const gatewayOpenAPI = `{
     ,"NetworkDebugStats": {"type":"object","properties":{"received_bytes":{"type":"integer","format":"int64"},"sent_bytes":{"type":"integer","format":"int64"},"total_bytes":{"type":"integer","format":"int64"},"current_speed_bps":{"type":"number"},"average_speed_bps":{"type":"number"},"request_count":{"type":"integer"},"active_requests":{"type":"integer"},"last_url":{"type":"string"},"last_status":{"type":"integer"},"last_error":{"type":"string"}}}
   }},
   "paths": {
+    "/devices/discovered": {"get":{"tags":["Devices"],"summary":"Discover modem candidates","description":"Preserves core discovery and supplements the supported DJI ECM layout. Serial probing is read-only, bounded, and skipped for configured adapters. Unavailable ECM candidates remain visible with a diagnostic reason.","parameters":[{"name":"with_imei","in":"query","schema":{"type":"integer","enum":[0,1],"default":0}}],"responses":{"200":{"description":"Discovered candidates","content":{"application/json":{"schema":{"type":"object","additionalProperties":true,"properties":{"devices":{"type":"array","items":{"$ref":"#/components/schemas/VoHiveXDiscoveredDevice"}}}}}}},"401":{"description":"Authentication required"},"502":{"description":"Upstream discovery unavailable or invalid"}}}},
     "/logs/history": {"delete":{"tags":["Logs"],"summary":"Clear the active application log","description":"Truncates the active log in place. Rotated archives are retained and new events continue to be logged.","responses":{"200":{"description":"Active log cleared","content":{"application/json":{"schema":{"type":"object","properties":{"cleared":{"type":"boolean"}}}}}},"401":{"description":"Authentication required"},"403":{"description":"Cross-origin request rejected"},"500":{"description":"Log file could not be cleared"}}}},
     "/cards/policies": {"get":{"tags":["Card policy"],"summary":"List saved card policies","responses":{"200":{"description":"Saved card policies"},"401":{"description":"Unauthorized"}}}},
     "/cards/{iccid}/policy": {
@@ -174,7 +176,7 @@ func mergeOpenAPI(spec map[string]any) error {
 					}
 				}
 			}
-			if _, found := existing[method]; !found || path == "/settings/notifications/webhook/test" {
+			if _, found := existing[method]; !found || path == "/settings/notifications/webhook/test" || path == "/devices/discovered" {
 				existing[method] = operation
 			}
 		}

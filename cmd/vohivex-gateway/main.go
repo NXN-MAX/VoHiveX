@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const version = "2.1.4"
+const version = "2.1.5"
 
 type application struct {
 	configPath     string
@@ -34,6 +34,7 @@ type application struct {
 	media          *browserMedia
 	localCallsOnly bool
 	network        *networkDebugManager
+	discovery      *modemDiscovery
 	smsMu          sync.Mutex
 	coreAuthMu     sync.Mutex
 	coreToken      string
@@ -139,6 +140,7 @@ func run() error {
 		media:          newBrowserMedia(os.Getenv("VOHIVEX_CALL_BRIDGE")),
 		localCallsOnly: os.Getenv("VOHIVEX_LOCAL_CALLS_ONLY") == "1",
 		network:        newNetworkDebugManager(),
+		discovery:      newModemDiscovery(getenv("QMI_SYS_ROOT", "/host-sys"), "/dev"),
 		qmiSendSMS:     sendQmiSMS,
 		started:        time.Now(),
 	}

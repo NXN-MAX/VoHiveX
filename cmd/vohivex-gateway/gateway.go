@@ -47,6 +47,8 @@ func (app *application) routes() http.Handler {
 			app.metrics(w, r)
 		case path == "/api/auth/login":
 			app.authLoginAPI(w, r)
+		case path == "/api/devices/discovered" && r.Method == http.MethodGet:
+			app.discoveredDevicesAPI(w, r)
 		case path == "/api/logs/history" && r.Method == http.MethodDelete:
 			app.clearLogHistory(w, r)
 		case path == "/api/openapi.json" || path == "/api/openapi.yaml":
