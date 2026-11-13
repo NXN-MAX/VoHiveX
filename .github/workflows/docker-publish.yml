@@ -20,6 +20,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check Python style and formatting
+        run: |
+          python3 -m pip install --disable-pip-version-check -r app/dev-requirements.txt
+          ruff check --select E4,E7,E9,F,I,EXE,PLW1510 app/modem_compat.py app/patch-release.py app/test-core-discovery.py app/tests
+          ruff format --check app/modem_compat.py app/patch-release.py app/test-core-discovery.py app/tests
       - name: Check public files for private runtime data
         run: python3 app/check-public-files.py
       - name: Test QMI and ECM driver layouts
@@ -53,8 +61,11 @@ jobs:
         with:
           go-version: '1.24.x'
           cache: true
-      - name: Test Go gateway
-        run: go test ./...
+      - name: Vet and race-test Go gateway
+        if: matrix.name == 'amd64'
+        run: |
+          go vet ./...
+          go test -race ./...
       - name: Build static Linux binary
         env:
           GOOS: linux
@@ -122,6 +133,8 @@ jobs:
           tags: vohivex:test-${{ matrix.arch }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Test native modem discovery against isolated USB fixtures
+        run: python3 app/test-core-discovery.py --image 'vohivex:test-${{ matrix.arch }}' --platform '${{ matrix.platform }}'
       - name: Test Go runtime and compatible configuration migration
         run: |
           docker run --rm --platform '${{ matrix.platform }}' \
@@ -129,7 +142,7 @@ jobs:
             --entrypoint /bin/sh \
             -e CONFIG_PATH=/tmp/config.yaml \
             vohivex:test-${{ matrix.arch }} -ec '
-              test "$(/opt/vohivex/vohivex-gateway -version)" = 2.1.5
+              test "$(/opt/vohivex/vohivex-gateway -version)" = 2.1.6
               /opt/vohivex/vohivex-gateway -prepare-config
               grep -q "127.0.0.1:7576" /tmp/config.yaml
               grep -q "username: \"admin\"" /tmp/config.yaml
