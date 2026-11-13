@@ -5,14 +5,10 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"regexp"
 	"strings"
 
 	"golang.org/x/sys/unix"
 )
-
-var serialIMEILine = regexp.MustCompile(`^(?:\+CGSN:\s*)?"?([0-9]{15})"?$`)
 
 func serialPoll(ctx context.Context, fd int, event int16) error {
 	for {
@@ -77,6 +73,9 @@ func probeSerialIMEI(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	defer unix.IoctlSetTermios(fd, unix.TCSETS, previous)
+	if err := unix.IoctlSetInt(fd, unix.TCFLSH, unix.TCIFLUSH); err != nil {
+		return "", err
+	}
 	command := []byte("AT+CGSN\r")
 	for len(command) > 0 {
 		if err := serialPoll(ctx, fd, unix.POLLOUT); err != nil {
@@ -110,21 +109,17 @@ func probeSerialIMEI(ctx context.Context, path string) (string, error) {
 		if n == 0 {
 			return "", errors.New("serial device disconnected")
 		}
-		response.Write(buffer[:n])
-		identity, ok := "", false
-		for _, line := range strings.FieldsFunc(response.String(), func(c rune) bool { return c == '\r' || c == '\n' }) {
-			line = strings.TrimSpace(line)
-			if match := serialIMEILine.FindStringSubmatch(line); len(match) == 2 {
-				identity = match[1]
-			}
-			if line == "ERROR" || strings.HasPrefix(line, "+CME ERROR:") {
-				return "", errors.New("modem rejected identity query")
-			}
-			ok = ok || line == "OK"
+		if response.Len()+n > 4096 {
+			return "", errors.New("serial identity response exceeded limit")
 		}
-		if identity != "" && ok {
+		response.Write(buffer[:n])
+		identity, complete, err := parseSerialIdentity(response.String())
+		if err != nil {
+			return "", err
+		}
+		if complete {
 			return identity, nil
 		}
 	}
-	return "", fmt.Errorf("serial identity response exceeded limit")
+	return "", errors.New("serial identity response exceeded limit")
 }

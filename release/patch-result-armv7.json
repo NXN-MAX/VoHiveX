@@ -1,6 +1,16 @@
 {
   "original_sha256": "682f3dc02a59bbbdb7128e71f212ca0a0c2d1825efa27e35bbf1537496625766",
-  "patched_sha256": "1afab541d48dd9acffdd600c339cd401af50fc698107359620d8559b6b24d8e9",
+  "patched_sha256": "707e996b486653bbee42503da52e1d1b7818a7d6972f32588bf415dbdc7a99a3",
+  "modem_compatibility": {
+    "usb_id": "2ca3:4006",
+    "ec25_reference": "2c7c:0125",
+    "function": "discoverFallbackOne",
+    "function_sha256": "2846f5ddb882c6a0414499fe3449929caa2c0f211a4d93b2b702cb17e07b9a59",
+    "mechanism": "native AT fallback; original USB identity retained",
+    "guard_offset": 15836392,
+    "guard_size": 52,
+    "guard_sha256": "c30834acc1f964d1096750bd3db2fba11c95d584745e36fbdb3bb32a947af988"
+  },
   "disabled_http_handlers": [
     "handleSystemInfo",
     "handleCheckUpdate",

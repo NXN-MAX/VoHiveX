@@ -16,7 +16,7 @@
 [English](../README.md) | [العربية](README.ar.md) | 简体中文 | [繁體中文](README.zh-TW.md) | [Français](README.fr.md) | [Русский](README.ru.md) | [Español](README.es.md) | [日本語](README.ja.md)
 
 **原项目：** [iniwex5](https://github.com/iniwex5) 开发的 [VoHive](https://github.com/iniwex5/vohive)<br>
-**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **版本：** 2.1.5
+**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **版本：** 2.1.6
 
 VoHiveX 是基于 VoHive 开发的个人模组管理与测试平台。项目增加了大疆 4G 模块兼容、定时短信、Mihomo 订阅与节点管理、eSIM 激活码识别、短信归档、消息推送，以及由 Go 网关支持的响应式 Vue 界面。
 
@@ -26,7 +26,7 @@ VoHiveX 是基于 VoHive 开发的个人模组管理与测试平台。项目增�
 
 - 支持使用 USB ID `2ca3:4006` 的大疆一代 4G 模块。
 - 保留大疆原始 USB ID，无需刷机、改写 USB ID 或永久修改宿主机驱动。
-- 运行时将设备匹配到 Linux 已有的 `option` 和 `qmi_wwan` 驱动，并向容器提供 AT 串口与 QMI 接口。
+- 保留 DJI 原厂 USB 标识；QMI 运行时匹配使用 EC25（`2c7c:0125`）驱动参数，ECM 保留 `cdc_ether`。内置核心直接识别 DJI 标识，用于 AT 设备启动和重连。
 - 二代模块可通过固件和宿主机内核提供的兼容 QMI 或 MBIM 通道使用。
 
 ### 定时短信
@@ -73,10 +73,10 @@ VoHiveX 是基于 VoHive 开发的个人模组管理与测试平台。项目增�
 
 镜像发布于：
 
-- `maxnxxn/vohivex:2.1.5`
-- `ghcr.io/nxn-max/vohivex:2.1.5`
+- `maxnxxn/vohivex:2.1.6`
+- `ghcr.io/nxn-max/vohivex:2.1.6`
 
-两个仓库均提供多架构的 `2.1.5`、`v2.1.5` 和 `latest` 标签，Docker 会自动选择适合宿主机的镜像。
+两个仓库均提供多架构的 `2.1.6`、`v2.1.6` 和 `latest` 标签，Docker 会自动选择适合宿主机的镜像。
 
 默认值：
 

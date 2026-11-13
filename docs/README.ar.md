@@ -16,7 +16,7 @@
 [English](../README.md) | العربية | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Français](README.fr.md) | [Русский](README.ru.md) | [Español](README.es.md) | [日本語](README.ja.md)
 
 **المشروع الأصلي:** [VoHive](https://github.com/iniwex5/vohive) من تطوير [iniwex5](https://github.com/iniwex5)<br>
-**مؤلف VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **الإصدار:** 2.1.5
+**مؤلف VoHiveX:** [NXN-MAX](https://github.com/NXN-MAX) · **الإصدار:** 2.1.6
 
 VoHiveX منصة شخصية لإدارة وحدات الاتصال واختبارها، مشتقة من VoHive. تضيف التوافق مع وحدات DJI 4G، وجدولة الرسائل القصيرة، وإدارة اشتراكات وعُقد Mihomo، والتعرّف على رموز تفعيل eSIM، وأرشفة الرسائل، والإشعارات، وواجهة Vue متجاوبة تدعمها بوابة مكتوبة بلغة Go.
 
@@ -73,10 +73,10 @@ VoHiveX منصة شخصية لإدارة وحدات الاتصال واختبا�
 
 تُنشر الصور في:
 
-- `maxnxxn/vohivex:2.1.5`
-- `ghcr.io/nxn-max/vohivex:2.1.5`
+- `maxnxxn/vohivex:2.1.6`
+- `ghcr.io/nxn-max/vohivex:2.1.6`
 
-يوفر المستودعان الوسوم متعددة البنى `2.1.5` و`v2.1.5` و`latest`. يختار Docker الصورة المناسبة للمضيف تلقائيًا.
+يوفر المستودعان الوسوم متعددة البنى `2.1.6` و`v2.1.6` و`latest`. يختار Docker الصورة المناسبة للمضيف تلقائيًا.
 
 القيم الافتراضية:
 

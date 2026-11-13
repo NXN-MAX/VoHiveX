@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -99,6 +100,15 @@ func degradeDiscovery(row map[string]any, code, reason string) {
 	row["degraded"], row["discovery_error"], row["degraded_reason"] = true, code, reason
 }
 
+func discoveryContains(rows []map[string]any, candidate map[string]any) bool {
+	for _, known := range rows {
+		if known["usb_path"] == candidate["usb_path"] || (candidate["at_port"] != "" && known["at_port"] == candidate["at_port"]) {
+			return true
+		}
+	}
+	return false
+}
+
 func configuredECM(row map[string]any, configured []map[string]any) map[string]any {
 	for _, device := range configured {
 		usb, _ := device["usb_path"].(string)
@@ -110,43 +120,129 @@ func configuredECM(row map[string]any, configured []map[string]any) map[string]a
 	return nil
 }
 
+func configuredIMEI(imei string, configured []map[string]any) (map[string]any, bool) {
+	var match map[string]any
+	for _, device := range configured {
+		identity, _ := device["modem_imei"].(string)
+		if identity != imei {
+			continue
+		}
+		if match != nil {
+			return nil, true
+		}
+		match = device
+	}
+	return match, false
+}
+
+func markConfigured(row, device map[string]any, withIMEI bool) {
+	row["configured"], row["configured_id"] = true, device["id"]
+	if identity, _ := device["modem_imei"].(string); withIMEI && validModemIMEI(identity) {
+		row["imei"] = identity
+	}
+}
+
+// The core keeps USB/AT paths in live workers, while its saved YAML may contain
+// only an ID and IMEI. Use live bindings to avoid probing a worker's owned port.
+func (app *application) discoveryConfiguration(r *http.Request, runtime map[string]any) ([]map[string]any, error) {
+	cfg, _, err := readCoreConfig(app.configPath)
+	if err != nil {
+		return nil, err
+	}
+	configured := make([]map[string]any, 0, len(cfg.Devices))
+	for _, saved := range cfg.Devices {
+		device := make(map[string]any, len(saved)+1)
+		for key, value := range saved {
+			device[key] = value
+		}
+		device["_runtime_running"] = false
+		configured = append(configured, device)
+	}
+	for _, running := range deviceRows(runtime) {
+		if running["running"] != true && running["healthy"] != true {
+			continue
+		}
+		id, _ := running["id"].(string)
+		if id == "" {
+			return nil, errors.New("invalid active device identity")
+		}
+		status, value, err := app.upstreamJSON(r, http.MethodGet, "/api/devices/"+url.PathEscape(id)+"/config", nil, 2*time.Second)
+		if err != nil || status != http.StatusOK {
+			return nil, errors.New("active device configuration unavailable")
+		}
+		object, _ := value.(map[string]any)
+		live, ok := object["config"].(map[string]any)
+		if !ok || live["id"] != id {
+			return nil, errors.New("invalid active device configuration")
+		}
+		usb, _ := live["usb_path"].(string)
+		port, _ := live["at_port"].(string)
+		if live["device_backend"] == "at" && usb == "" && port == "" {
+			return nil, errors.New("active AT port ownership unavailable")
+		}
+		found := false
+		for _, device := range configured {
+			if device["id"] != id {
+				continue
+			}
+			if device["modem_imei"] != live["modem_imei"] {
+				return nil, errors.New("device configuration changed during discovery")
+			}
+			for _, key := range []string{"usb_path", "at_port"} {
+				device[key] = live[key]
+			}
+			device["_runtime_running"] = true
+			found = true
+		}
+		if !found {
+			return nil, errors.New("device configuration changed during discovery")
+		}
+	}
+	return configured, nil
+}
+
+func (d *modemDiscovery) probeIMEI(ctx context.Context, port string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	select {
+	case d.gate <- struct{}{}:
+		defer func() { <-d.gate }()
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	return d.probe(probeCtx, port)
+}
+
 func (d *modemDiscovery) appendECM(ctx context.Context, existing []map[string]any, configured []map[string]any, configErr error, withIMEI bool) []map[string]any {
 	rows := append([]map[string]any{}, existing...)
 	for _, row := range d.ecmCandidates() {
-		duplicate := false
-		for _, known := range rows {
-			if known["usb_path"] == row["usb_path"] || (row["at_port"] != "" && known["at_port"] == row["at_port"]) {
-				duplicate = true
-				break
-			}
-		}
-		if duplicate {
+		if discoveryContains(rows, row) {
 			continue
 		}
-		if device := configuredECM(row, configured); device != nil {
-			row["configured"], row["configured_id"] = true, device["id"]
-			if withIMEI {
-				row["imei"] = device["modem_imei"]
-			}
-		} else if configErr != nil {
+		device := configuredECM(row, configured)
+		if configErr != nil {
 			degradeDiscovery(row, "configuration_unavailable", "无法读取当前设备配置，暂不探测串口，请检查配置文件。")
+		} else if device != nil && (device["_runtime_running"] == true || !withIMEI) {
+			markConfigured(row, device, withIMEI)
 		} else if withIMEI && row["degraded"] != true {
-			select {
-			case d.gate <- struct{}{}:
-				probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-				imei, err := d.probe(probeCtx, row["at_port"].(string))
-				cancel()
-				<-d.gate
-				switch {
-				case errors.Is(err, errSerialBusy):
-					degradeDiscovery(row, "serial_busy", "AT 串口被占用，请检查主机上的 ModemManager 或其他串口程序，释放后重试。")
-				case err != nil || !validModemIMEI(imei):
-					degradeDiscovery(row, "identity_unavailable", "无法读取模组 IMEI，请检查 AT 串口后重试。")
-				default:
-					row["imei"] = imei
-				}
-			case <-ctx.Done():
+			imei, err := d.probeIMEI(ctx, row["at_port"].(string))
+			switch {
+			case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
 				degradeDiscovery(row, "discovery_timeout", "设备探测已超时，请重新扫描。")
+			case errors.Is(err, errSerialBusy):
+				degradeDiscovery(row, "serial_busy", "AT 串口被占用，请检查主机上的 ModemManager 或其他串口程序，释放后重试。")
+			case err != nil || !validModemIMEI(imei):
+				degradeDiscovery(row, "identity_unavailable", "无法读取模组 IMEI，请检查 AT 串口后重试。")
+			default:
+				row["imei"] = imei
+				if saved, ambiguous := configuredIMEI(imei, configured); ambiguous {
+					degradeDiscovery(row, "configuration_conflict", "多个设备配置绑定了同一模组，请检查设备配置。")
+				} else if saved != nil {
+					markConfigured(row, saved, true)
+				}
 			}
 		}
 		rows = append(rows, row)
@@ -155,7 +251,8 @@ func (d *modemDiscovery) appendECM(ctx context.Context, existing []map[string]an
 }
 
 func (app *application) discoveredDevicesAPI(w http.ResponseWriter, r *http.Request) {
-	if _, status, err := app.validateAuth(r); err != nil {
+	runtime, status, err := app.validateAuth(r)
+	if err != nil {
 		writeJSON(w, status, map[string]any{"error": err.Error()})
 		return
 	}
@@ -181,14 +278,24 @@ func (app *application) discoveredDevicesAPI(w http.ResponseWriter, r *http.Requ
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "设备发现响应格式无效"})
 		return
 	}
-	var configured []map[string]any
-	cfg, _, configErr := readCoreConfig(app.configPath)
-	if configErr == nil {
-		configured = cfg.Devices
+	// New images discover this layout natively. Preserve that complete response
+	// without extra config requests or serial access; retain the older-core fallback.
+	existing := deviceRows(data)
+	missing := false
+	for _, candidate := range app.discovery.ecmCandidates() {
+		if !discoveryContains(existing, candidate) {
+			missing = true
+			break
+		}
+	}
+	if !missing {
+		writeJSON(w, status, data)
+		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
-	data["devices"] = app.discovery.appendECM(ctx, deviceRows(data), configured, configErr, r.URL.Query().Get("with_imei") == "1")
+	configured, configErr := app.discoveryConfiguration(r.Clone(ctx), runtime)
+	data["devices"] = app.discovery.appendECM(ctx, existing, configured, configErr, r.URL.Query().Get("with_imei") == "1")
 	writeJSON(w, status, data)
 }
 

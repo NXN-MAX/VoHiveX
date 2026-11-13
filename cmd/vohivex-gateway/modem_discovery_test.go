@@ -78,7 +78,7 @@ func TestECMDiscoveryDoesNotProbeConfiguredOrPassiveDevices(t *testing.T) {
 	}
 	row := d.ecmCandidates()[0]
 	for _, key := range []string{"usb_path", "at_port"} {
-		configured := []map[string]any{{"id": "configured-modem", key: row[key], "modem_imei": strings.Repeat("2", 15)}}
+		configured := []map[string]any{{"id": "configured-modem", key: row[key], "modem_imei": strings.Repeat("2", 15), "_runtime_running": true}}
 		got := d.appendECM(context.Background(), nil, configured, nil, true)[0]
 		if got["configured"] != true || got["configured_id"] != "configured-modem" || got["imei"] != strings.Repeat("2", 15) {
 			t.Fatalf("configured: %#v", got)
@@ -208,5 +208,144 @@ func TestDiscoveryHTTPAuthAndUpstreamFailures(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestECMMatchesSavedIMEIWithoutTransientPaths(t *testing.T) {
+	d := discoveryFixture(t)
+	configured := []map[string]any{{"id": "saved-modem", "modem_imei": strings.Repeat("1", 15)}}
+	row := d.appendECM(context.Background(), nil, configured, nil, true)[0]
+	if row["configured"] != true || row["configured_id"] != "saved-modem" {
+		t.Fatalf("saved identity was not recognized: %#v", row)
+	}
+}
+
+func TestECMDoesNotTrustAReusedUSBPathForIdentity(t *testing.T) {
+	d := discoveryFixture(t)
+	configured := []map[string]any{{"id": "previous-modem", "usb_path": "1-1", "modem_imei": strings.Repeat("2", 15)}}
+	row := d.appendECM(context.Background(), nil, configured, nil, true)[0]
+	if row["configured"] != false || row["imei"] != strings.Repeat("1", 15) {
+		t.Fatalf("stale path hid a replacement device: %#v", row)
+	}
+}
+
+func TestECMDuplicateIdentityFailsClosed(t *testing.T) {
+	d := discoveryFixture(t)
+	configured := []map[string]any{{"id": "first", "modem_imei": strings.Repeat("1", 15)}, {"id": "second", "modem_imei": strings.Repeat("1", 15)}}
+	row := d.appendECM(context.Background(), nil, configured, nil, true)[0]
+	if row["discovery_error"] != "configuration_conflict" || row["degraded"] != true {
+		t.Fatalf("ambiguous binding accepted: %#v", row)
+	}
+}
+
+func TestECMCanceledProbeDoesNotAcquireFreePort(t *testing.T) {
+	d := discoveryFixture(t)
+	d.probe = func(context.Context, string) (string, error) {
+		t.Fatal("canceled request probed a port")
+		return "", nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := d.probeIMEI(ctx, "unused"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDiscoveryUsesLiveBindingAndPreservesConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		status          int
+		missingBindings bool
+	}{
+		{"live binding", http.StatusOK, false},
+		{"unavailable config", http.StatusServiceUnavailable, false},
+		{"null bindings", http.StatusOK, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := discoveryFixture(t)
+			d.probe = func(context.Context, string) (string, error) {
+				t.Fatal("attempted to probe an active worker's port")
+				return "", nil
+			}
+			path := coreAuthTestConfig(t)
+			text := "web:\n  username: admin\n  password: admin\ndevices:\n  - id: owned-modem\n    modem_imei: '" + strings.Repeat("1", 15) + "'\n    device_backend: at\n"
+			if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			core := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer test-token" {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+				}
+				switch r.URL.Path {
+				case "/api/devices":
+					writeJSON(w, 200, map[string]any{"devices": []any{map[string]any{"id": "owned-modem", "running": true}}})
+				case "/api/devices/discovered":
+					writeJSON(w, 200, map[string]any{"devices": []any{}})
+				case "/api/devices/owned-modem/config":
+					config := map[string]any{"id": "owned-modem", "modem_imei": strings.Repeat("1", 15), "device_backend": "at"}
+					if !tc.missingBindings {
+						config["usb_path"], config["at_port"] = "1-1", filepath.Join(d.devRoot, "ttyUSB2")
+					}
+					writeJSON(w, tc.status, map[string]any{"config": config})
+				default:
+					t.Errorf("unexpected path %s", r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer core.Close()
+			app := &application{configPath: path, upstream: strings.TrimPrefix(core.URL, "http://"), discovery: d}
+			req := httptest.NewRequest(http.MethodGet, "/api/devices/discovered?with_imei=1", nil)
+			req.Header.Set("Authorization", "Bearer test-token")
+			w := httptest.NewRecorder()
+			app.discoveredDevicesAPI(w, req)
+			var data map[string]any
+			if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
+				t.Fatal(err)
+			}
+			rows := deviceRows(data)
+			if w.Code != 200 || len(rows) != 1 {
+				t.Fatalf("bad response: %d %s", w.Code, w.Body.String())
+			}
+			if tc.status == 200 && !tc.missingBindings && (rows[0]["configured"] != true || rows[0]["configured_id"] != "owned-modem") {
+				t.Fatalf("lost active binding: %#v", rows[0])
+			}
+			if (tc.status != 200 || tc.missingBindings) && rows[0]["discovery_error"] != "configuration_unavailable" {
+				t.Fatalf("unsafe fallback on core config failure: %#v", rows[0])
+			}
+			stored, _ := os.ReadFile(path)
+			if string(stored) != text {
+				t.Fatal("discovery changed saved config")
+			}
+		})
+	}
+}
+
+func TestNativeECMDiscoveryDoesNotPerformFallbackWork(t *testing.T) {
+	d := discoveryFixture(t)
+	d.probe = func(context.Context, string) (string, error) {
+		t.Fatal("native result was probed again")
+		return "", nil
+	}
+	core := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/devices":
+			writeJSON(w, 200, map[string]any{"devices": []any{map[string]any{"id": "owned-modem", "running": true}}})
+		case "/api/devices/discovered":
+			writeJSON(w, 200, map[string]any{"extra": "preserved", "devices": []any{map[string]any{"at_port": filepath.Join(d.devRoot, "ttyUSB2"), "configured": true, "configured_id": "owned-modem", "native": true}}})
+		default:
+			t.Errorf("unnecessary request %s", r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer core.Close()
+	app := &application{configPath: "missing", upstream: strings.TrimPrefix(core.URL, "http://"), discovery: d}
+	req := httptest.NewRequest(http.MethodGet, "/api/devices/discovered?with_imei=1", nil)
+	req.Header.Set("Authorization", "Bearer test-token")
+	w := httptest.NewRecorder()
+	app.discoveredDevicesAPI(w, req)
+	var data map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &data)
+	if w.Code != 200 || data["extra"] != "preserved" || deviceRows(data)[0]["native"] != true {
+		t.Fatalf("native response changed: %s", w.Body.String())
 	}
 }

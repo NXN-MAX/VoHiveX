@@ -72,6 +72,9 @@ def verify(root=ROOT, arch="all"):
         if not report_path:
             continue
         report = json.loads(report_path.read_text())
+        compatibility = report.get('modem_compatibility', {})
+        if compatibility.get('usb_id') != '2ca3:4006' or compatibility.get('function') != 'discoverFallbackOne':
+            errors.append(f'Missing native DJI/EC25 compatibility: {report_name}')
         proxy_arch = 'linux-amd64-compatible' if target == 'amd64' else 'linux-' + target
         proxy = next(b for b in vendor['binaries'] if b['arch'] == proxy_arch)
         elf_class, machine = {'amd64': (2, 62), 'arm64': (2, 183), 'armv7': (1, 40)}[target]
@@ -83,6 +86,10 @@ def verify(root=ROOT, arch="all"):
             data = binary.read_bytes()
             if hashlib.sha256(data).hexdigest() != expected:
                 errors.append(f'Binary checksum mismatch: {binary_name}')
+            if binary_name.startswith('release/') and compatibility:
+                offset, size = compatibility.get('guard_offset', -1), compatibility.get('guard_size', 0)
+                if not 0 <= offset < offset + size <= len(data) or hashlib.sha256(data[offset:offset + size]).hexdigest() != compatibility.get('guard_sha256'):
+                    errors.append(f'Native modem guard mismatch: {binary_name}')
             if data[:4] != b'\x7fELF' or data[4] != elf_class or int.from_bytes(data[18:20], 'little') != machine:
                 errors.append(f'Wrong ELF architecture: {binary_name}')
     for name in sorted(checked):

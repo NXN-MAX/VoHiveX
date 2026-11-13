@@ -16,16 +16,16 @@ Default credentials are created only for a new installation. Updates preserve th
 
 ## Images and Architectures
 
-- Docker Hub: `maxnxxn/vohivex:2.1.5`
-- GHCR: `ghcr.io/nxn-max/vohivex:2.1.5`
-- Multi-architecture tags: `2.1.5`, `v2.1.5`, and `latest`, with automatic selection for AMD64, ARM64, and ARMv7.
-- Architecture-specific tags: `2.1.5-amd64`, `2.1.5-arm64`, `2.1.5-aarch64`, and `2.1.5-armv7`.
+- Docker Hub: `maxnxxn/vohivex:2.1.6`
+- GHCR: `ghcr.io/nxn-max/vohivex:2.1.6`
+- Multi-architecture tags: `2.1.6`, `v2.1.6`, and `latest`, with automatic selection for AMD64, ARM64, and ARMv7.
+- Architecture-specific tags: `2.1.6-amd64`, `2.1.6-arm64`, `2.1.6-aarch64`, and `2.1.6-armv7`.
 
 ```sh
-docker pull maxnxxn/vohivex:2.1.5
+docker pull maxnxxn/vohivex:2.1.6
 ```
 
-Download `docker-compose.yml` and `.env.example` from the [GitHub repository](https://github.com/NXN-MAX/VoHiveX). Change the Compose `image` value to `maxnxxn/vohivex:2.1.5`, copy `.env.example` to `.env`, and leave kernel detection automatic. Compose uses host networking so the selected cellular interface is available to Network Debug. Then run `docker compose pull && docker compose up -d`.
+Download `docker-compose.yml` and `.env.example` from the [GitHub repository](https://github.com/NXN-MAX/VoHiveX). Change the Compose `image` value to `maxnxxn/vohivex:2.1.6`, copy `.env.example` to `.env`, and leave kernel detection automatic. Compose uses host networking so the selected cellular interface is available to Network Debug. Then run `docker compose pull && docker compose up -d`.
 
 Follow the [deployment guide](https://github.com/NXN-MAX/VoHiveX/blob/main/DEPLOY.md) to mount the configuration, data, and devices. Preserve `config`, `data`, `logs`, and `driver-state`; never bake user data into the image. ARM images are validated through emulated startup tests, while USB modem functions still require testing on physical hardware.
 

@@ -16,7 +16,7 @@
 [English](../README.md) | [العربية](README.ar.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Français](README.fr.md) | [Русский](README.ru.md) | [Español](README.es.md) | 日本語
 
 **原プロジェクト：** [iniwex5](https://github.com/iniwex5) による [VoHive](https://github.com/iniwex5/vohive)<br>
-**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **バージョン：** 2.1.5
+**VoHiveX 作者：** [NXN-MAX](https://github.com/NXN-MAX) · **バージョン：** 2.1.6
 
 VoHiveX は VoHive から派生した、個人向けのモデム管理・テストプラットフォームです。DJI 4G モジュール対応、SMS スケジューリング、Mihomo の購読・ノード管理、eSIM アクティベーションコード認識、SMS アーカイブ、通知機能、Go ゲートウェイを使用したレスポンシブな Vue UI を追加しています。
 
@@ -73,10 +73,10 @@ VoHiveX は VoHive から派生した、個人向けのモデム管理・テス�
 
 イメージの公開先：
 
-- `maxnxxn/vohivex:2.1.5`
-- `ghcr.io/nxn-max/vohivex:2.1.5`
+- `maxnxxn/vohivex:2.1.6`
+- `ghcr.io/nxn-max/vohivex:2.1.6`
 
-どちらもマルチアーキテクチャの `2.1.5`、`v2.1.5`、`latest` タグを提供し、Docker がホストに合うイメージを自動選択します。
+どちらもマルチアーキテクチャの `2.1.6`、`v2.1.6`、`latest` タグを提供し、Docker がホストに合うイメージを自動選択します。
 
 既定値：
 
