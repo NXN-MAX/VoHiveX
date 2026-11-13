@@ -1,6 +1,6 @@
 # VoHiveX Deployment
 
-VoHiveX supports Linux AMD64, ARM64/AArch64, and ARMv7. Pulling `ghcr.io/nxn-max/vohivex:2.1.5` is recommended; Docker selects the matching architecture automatically. A standalone 386 Go gateway binary is also available, but it does not include a 386 modem core.
+VoHiveX supports Linux AMD64, ARM64/AArch64, and ARMv7. Pulling `ghcr.io/nxn-max/vohivex:2.1.6` is recommended; Docker selects the matching architecture automatically. A standalone 386 Go gateway binary is also available, but it does not include a 386 modem core.
 
 ## Default Access
 
@@ -32,7 +32,7 @@ Before updating, stop the container and back up `.env`, `config`, `data`, `logs`
 
 ## Build from Source or a Deployment Package
 
-A source build machine requires Go 1.24+, Python 3, Node.js/npm, and UPX. Run `python3 app/prepare-build.py`, then `docker build -t vohivex:2.1.5 .`. The complete deployment package already contains programs for all three architectures and the generated frontend, so no frontend dependencies are required on the deployment host.
+A source build machine requires Go 1.24+, Python 3, Node.js/npm, and UPX. Run `python3 app/prepare-build.py`, then `docker build -t vohivex:2.1.6 .`. The complete deployment package already contains programs for all three architectures and the generated frontend, so no frontend dependencies are required on the deployment host.
 
 Release packages include `SHA256SUMS`. After extraction, run `sha256sum -c SHA256SUMS` before use. `python3 app/package-single.py` creates `dist/VoHiveX-deploy.zip` and `dist/VoHiveX-single.zip`, the latter of which also includes the build source.
 

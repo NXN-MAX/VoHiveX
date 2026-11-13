@@ -16,7 +16,7 @@
 English | [العربية](docs/README.ar.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [Français](docs/README.fr.md) | [Русский](docs/README.ru.md) | [Español](docs/README.es.md) | [日本語](docs/README.ja.md)
 
 **Original project:** [VoHive](https://github.com/iniwex5/vohive) by [iniwex5](https://github.com/iniwex5)<br>
-**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version:** 2.1.5
+**VoHiveX author:** [NXN-MAX](https://github.com/NXN-MAX) · **Version:** 2.1.6
 
 VoHiveX is a personal modem management and testing platform derived from VoHive. It adds DJI 4G module compatibility, scheduled SMS, Mihomo subscription and node management, eSIM activation-code recognition, SMS archives, notifications, and a responsive Vue interface backed by a Go gateway.
 
@@ -26,7 +26,7 @@ VoHiveX is a personal modem management and testing platform derived from VoHive.
 
 - Supports DJI first-generation 4G modules that expose USB ID `2ca3:4006`.
 - Keeps the original DJI USB ID. Reflashing, rewriting the USB ID, and permanent host-driver modification are not required.
-- Matches the device to the existing Linux `option` and `qmi_wwan` drivers at runtime, exposing AT serial and QMI interfaces to the container.
+- Keeps the DJI factory USB identity and uses EC25 (`2c7c:0125`) driver information for the runtime QMI match. ECM retains `cdc_ether`; the bundled core discovers the DJI identity natively for AT startup and reconnect.
 - Supports second-generation modules through compatible QMI or MBIM paths when provided by the module firmware and host kernel.
 
 ### Scheduled SMS
@@ -81,10 +81,10 @@ The complete container is published only for architectures that have a compatibl
 
 Images are published to:
 
-- `maxnxxn/vohivex:2.1.5`
-- `ghcr.io/nxn-max/vohivex:2.1.5`
+- `maxnxxn/vohivex:2.1.6`
+- `ghcr.io/nxn-max/vohivex:2.1.6`
 
-Both repositories provide multi-architecture `2.1.5`, `v2.1.5`, and `latest` tags. Docker selects the correct image for the host automatically.
+Both repositories provide multi-architecture `2.1.6`, `v2.1.6`, and `latest` tags. Docker selects the correct image for the host automatically.
 
 Defaults:
 

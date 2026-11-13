@@ -1,3 +1,18 @@
+## VoHiveX 2.1.6
+
+Complete DJI ECM compatibility in the bundled modem core's native discovery path. DJI's EC25-compatible `2ca3:4006` identity now reaches the same AT startup and reconnect lifecycle as supported Quectel devices, while retaining the real USB identity and the existing EC25 QMI driver mapping.
+
+### Fixes and validation
+
+- Extend only the exact DJI USB pair in the pinned native AT fallback. Preserve existing Quectel/Qualcomm, QMI, and MBIM branches across amd64, arm64, and ARMv7. No firmware or USB-mode change is performed.
+- Recognize saved IMEI-only device configurations in gateway fallback discovery. Read live bindings for active workers and avoid probing ports already in use by the core; reject conflicting identity mappings and reused stale paths.
+- Reuse complete native discovery responses without extra fallback configuration requests or serial I/O.
+- Reject stale terminal acknowledgements, incomplete replies, and conflicting modem identities during fallback serial probes. Keep port ownership, timeouts, reply bounds, and terminal-setting restoration explicit.
+- Keep native patch validation active under optimized Python, verify the complete pinned function and replacement guard, and include the required source helper in rebuild packages.
+- Run Go vet/race tests, Python style checks, driver fixtures, and isolated tests of the actual bundled core on all three Docker architectures. Hardware restart and disconnect/reconnect results are recorded separately from CI.
+
+Existing accounts, device IDs, SIM bindings, SMS, schedules, proxy settings, and call records remain compatible. The optional host ModemManager rule remains scoped to `2ca3:4006`.
+
 ## VoHiveX 2.1.5
 
 Fix DJI `2ca3:4006` adapters that expose an ECM network interface (including the QDC507 layout) instead of QMI. Existing devices and persistent data remain compatible.
