@@ -11,14 +11,14 @@ Run the following commands from the repository root. The Compose project name is
 
 ## Build
 
-GitHub Actions builds `linux/amd64`, `linux/arm64`, and `linux/arm/v7` separately, runs startup tests, and publishes to `ghcr.io/nxn-max/vohivex`. Pulling `2.1.5` or `latest` selects the correct architecture automatically.
+GitHub Actions builds `linux/amd64`, `linux/arm64`, and `linux/arm/v7` separately, runs startup tests, and publishes to `ghcr.io/nxn-max/vohivex`. Pulling `2.1.6` or `latest` selects the correct architecture automatically.
 
 For the first source build, install Go 1.24+, Python 3, Node.js/npm, and UPX on the build machine, then run:
 
 ```sh
 python3 app/prepare-build.py
 python3 app/verify-build.py
-docker build -f Dockerfile.vohivex -t vohivex:2.1.5 .
+docker build -f Dockerfile.vohivex -t vohivex:2.1.6 .
 ```
 
 Use `--arch amd64`, `--arch arm64`, or `--arch armv7` to prepare a single architecture. The Vue 3 + Vite + Pinia + Antdv Next application in `web/` is the single frontend source. Each architecture uses its own version-pinned manifest and SHA-256 values; patch offsets are never reused with another upstream version. Rebuild a patch separately with `patch-release.py --arch <architecture> --original /path/to/original`.
@@ -49,9 +49,11 @@ Health checks cover driver binding, device nodes, and the web service. Confirm t
 
 ## ECM Discovery and Serial Port Conflicts
 
-For DJI `2ca3:4006` adapters with the QDC507 ECM layout, absence of `/dev/cdc-wdm*` is expected. The health check requires the AT node and ECM network interface instead. The gateway supplements the core's discovery result with this specific layout; it does not assume other USB layouts use the same AT interface. The Add Device dialog shows an unavailable candidate with a reason when its driver, AT node, or identity is unavailable.
+For DJI's factory-modified EC25-compatible `2ca3:4006` adapters with the QDC507 ECM layout, absence of `/dev/cdc-wdm*` is expected. The health check requires the AT node and ECM network interface instead. The bundled core recognizes this exact USB pair in its native AT fallback, including startup from saved IMEI-only configurations and reconnect discovery. The device keeps DJI's USB identity; the existing EC25 QMI driver reference remains available for QMI layouts. The pinned binary patch validates the entire original scanner function and architecture before changing its vendor guard. Existing Quectel/Qualcomm, QMI, and MBIM paths are preserved.
 
-`GET /api/devices/discovered?with_imei=1` requires login and makes a bounded, read-only `AT+CGSN` query on an unconfigured candidate's MI_02 port. Configured devices are never probed by this fallback. Without `with_imei=1`, no serial query is made. Diagnostic and GNSS ports are not probed. An exclusive owner produces `discovery_error: serial_busy`; the response also includes `degraded: true` and `degraded_reason` for display. Inspect the Docker host's port owners (`sudo fuser -v /dev/ttyUSB*` or `sudo lsof /dev/ttyUSB*`); a container's PID namespace may hide the owning host process. A busy port alone does not identify which program owns it.
+The gateway preserves complete native discovery responses. Its compatibility fallback for older separate cores supplements only this ECM layout and uses MI_02 for bounded, read-only `AT+CGSN` identity lookup when the authenticated request includes `with_imei=1`. It reads live worker bindings before considering a probe, avoids active workers' ports, and matches offline saved configurations by fresh IMEI rather than stale USB paths. Without `with_imei=1`, this fallback performs no serial query. It does not probe diagnostic or GNSS ports. An exclusive owner produces `discovery_error: serial_busy`; the response also includes `degraded: true` and `degraded_reason` for display. Inspect the Docker host's port owners (`sudo fuser -v /dev/ttyUSB*` or `sudo lsof /dev/ttyUSB*`); a container's PID namespace may hide the owning host process. A busy port alone does not identify which program owns it.
+
+CI runs the actual packaged modem core against isolated sysfs and pseudo-terminal fixtures on AMD64, ARM64, and ARMv7. These cover the exact DJI ID, existing Quectel/Qualcomm ECM, QMI/MBIM discovery, and rejection of unrelated AT layouts. Run `python3 app/test-core-discovery.py --image <local-image> --platform linux/amd64` on a Linux Docker build host. No real USB devices or production data are mounted into these tests; physical modem operation must also be verified on the target host.
 
 If host inspection confirms ModemManager owns this adapter and VoHiveX should manage it, the optional [79-mm-vohivex.rules](udev/79-mm-vohivex.rules) reserves only USB ID `2ca3:4006`. It applies to all adapters with that USB ID, so check for any other matching adapter first. Install it on the Docker host:
 

@@ -160,5 +160,16 @@
       "hash_offsets": []
     }
   ],
-  "abort_with_status": 6514188
+  "abort_with_status": 6514188,
+  "native_modem_discovery": {
+    "address": 15901060,
+    "offset": 15835524,
+    "size": 2076,
+    "sha256": "2846f5ddb882c6a0414499fe3449929caa2c0f211a4d93b2b702cb17e07b9a59",
+    "guard_offset": 15836392,
+    "guard_size": 52,
+    "guard_hex": "0230a0e17cbc02e30b0053e10800000ac6b500e30b0053e10500000a431f8de20000a0e3c31fc6eb0020a0e36821cde500f19de4",
+    "accept": 15901980,
+    "reject": 15902568
+  }
 }
